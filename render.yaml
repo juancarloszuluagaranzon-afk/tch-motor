@@ -1,0 +1,23 @@
+# Blueprint de Render para el servicio de estimación TCH al vuelo (Opción B).
+# En Render: New + → Blueprint → conecta el repo tch-motor → detecta este archivo.
+# Luego setea en el dashboard de Render las env vars marcadas sync:false.
+services:
+  - type: web
+    name: estimador-tch-api
+    runtime: python
+    plan: free
+    region: oregon
+    buildCommand: pip install -r service/requirements.txt
+    startCommand: gunicorn --chdir service --timeout 120 --workers 1 app:app
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.6"
+      - key: TCH_SUPABASE_URL
+        sync: false          # URL del Supabase Rio Map
+      - key: TCH_SUPABASE_ANON
+        sync: false          # anon key (lectura, RLS)
+      - key: TCH_SUPABASE_KEY
+        sync: false          # service_role — solo si quieres guardar estimados (?guardar=1)
+      - key: ALLOW_ORIGIN
+        value: https://estimador-tch.vercel.app
