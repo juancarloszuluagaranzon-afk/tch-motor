@@ -32,6 +32,12 @@ class JobRecalibracion:
             r = reales.get(e["sec_ste"])
             if not r:
                 continue
+            # emparejar solo la MISMA soca: el estimado de una suerte ya cortada es
+            # la soca nueva (joven); su real es la soca vieja. Cruzarlos contamina el
+            # factor (ver dashboard realDe). Si ambos traen soca y difieren, se salta.
+            e_soca, r_corte = e.get("soca"), r.get("corte")
+            if e_soca is not None and r_corte is not None and int(e_soca) != int(r_corte):
+                continue
             k_old = e.get("factor_recal") or 1.0
             aplicado = e.get("tch_estimado")
             real = r.get("tch_real")
