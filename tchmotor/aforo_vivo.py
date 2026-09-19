@@ -30,11 +30,12 @@ def _valor_aforo(f: dict) -> float | None:
     return sum(vals) / len(vals) if vals else None
 
 
-def aforos_vigentes(sb_turnos, hasta_fecha: str) -> dict[str, float]:
+def aforos_vigentes(sb, hasta_fecha: str, tabla: str = "tch_aforo_vivo") -> dict[str, float]:
     """{sec_ste: tch_aforo_promedio} del aforo más reciente de cada suerte antes
-    de `hasta_fecha`."""
-    filas = sb_turnos.leer(
-        "aforo_records",
+    de `hasta_fecha`. Lee de `tabla` (por defecto la tabla propia del modelo
+    `tch_aforo_vivo`, cargada del libro de Agronomía)."""
+    filas = sb.leer(
+        tabla,
         select="*",
         **{
             "date": f"lt.{hasta_fecha}",   # solo aforos anteriores a la corrida

@@ -45,16 +45,14 @@ def main():
     except Exception:
         pass
 
-    # aforos en vivo (Turnos) — opcional
+    # aforos en vivo (tabla propia tch_aforo_vivo, cargada del libro de Agronomía
+    # con scripts/cargar_aforos.py) — opcional; devuelve el promedio de los métodos
     aforos = {}
-    turl = ce._env(r"C:\Users\Agr349\turnos-jornales\.env.local", "NEXT_PUBLIC_SUPABASE_URL")
-    tkey = ce._env(r"C:\Users\Agr349\turnos-jornales\.env.local", "SUPABASE_SERVICE_ROLE_KEY")
-    if turl and tkey:
-        try:
-            aforos = aforos_vigentes(Supabase(url=turl, key=tkey), hoy.isoformat())
-            print(f"aforos en vivo: {len(aforos)} suertes", flush=True)
-        except Exception as e:
-            print("aviso aforos:", str(e)[:100], flush=True)
+    try:
+        aforos = aforos_vigentes(sb, hoy.isoformat())  # tabla tch_aforo_vivo (mismo Supabase)
+        print(f"aforos en vivo: {len(aforos)} suertes", flush=True)
+    except Exception as e:
+        print("aviso aforos:", str(e)[:100], flush=True)
 
     job = JobEstimados(sb, curva_suerte)
     print("entrenando el motor...", flush=True)
