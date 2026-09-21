@@ -16,11 +16,19 @@ Se aplica SOLO cuando hay aforo en vivo; sin aforo, el estimado es el del motor.
 """
 from __future__ import annotations
 
-# Coeficientes por defecto (regresión sobre 77 cosechas 2026, aforo=promedio de los
-# 3 métodos; MAPE 9,1 %). Re-ajustables con `ajustar` cada campaña.
-COEF_MOTOR = 0.5208
-COEF_AFORO = 0.3456
-INTERCEPTO = 10.2058
+# Coeficientes re-ajustados con las 28 cosechas de septiembre-2026 (Cosecha de
+# campo, mismo ciclo cortado, soca-limpio), aforo=promedio de los métodos. Bajan el
+# sesgo de la fusión de +5,5 % a 0,0 % y el MAPE de 10,0 % a 8,6 %: el aforo físico
+# también sobreestimó las suertes bajas, por eso el peso del aforo cae de 0,35 a
+# 0,14 y el intercepto sube. Se ajustaron en la ESCALA del motor recalibrado con el
+# factor vigente (tch_factor riopaila k=0,9557), que es lo que la corrida le pasa a
+# `combinar`; si ese factor del motor cambia, hay que RE-AJUSTAR la fusión.
+# Re-ajustar cada campaña (y a medida que cierran más meses: sept es un mes bajo)
+# con `scripts/reajustar_fusion.py` (usa `ajustar`).
+# Anteriores (77 cosechas, MAPE 9,1 %): 0.5208 / 0.3456 / 10.2058.
+COEF_MOTOR = 0.5183
+COEF_AFORO = 0.1402
+INTERCEPTO = 30.0364
 
 
 class Fusion:
