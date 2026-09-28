@@ -34,6 +34,24 @@ def curve_pairs(cut_iso: str, serie, max_age: float | None = None):
     return pts
 
 
+def limpiar_nube(pares, umbral: float = 0.30):
+    """Corrige picos/valles AISLADOS de nube en una serie [(edad, valor)] ordenada por edad.
+
+    Un punto es nube solo si queda fuera del rango de sus dos vecinos y se desvía más de `umbral`
+    (fracción) de la interpolación entre ellos; se reemplaza por esa interpolación. Los tramos
+    sostenidos (estrés, riego, maduración) no son extremos aislados y quedan intactos.
+    """
+    out = list(pares)
+    for i in range(1, len(pares) - 1):
+        (e0, v0), (e1, v1), (e2, v2) = pares[i - 1], pares[i], pares[i + 1]
+        if e2 == e0:
+            continue
+        lin = v0 + (v2 - v0) * (e1 - e0) / (e2 - e0)
+        if lin > 0 and (v1 < min(v0, v2) or v1 > max(v0, v2)) and abs(v1 - lin) / lin > umbral:
+            out[i] = (e1, lin)
+    return out
+
+
 def curve_features(nombre: str, pares) -> dict:
     """Resume la curva en features. Con < 3 puntos válidos devuelve NaN (nubes)."""
     ks = ["mean", "peak", "min", "gg", "early", "last", "slope", "rng", "n"]

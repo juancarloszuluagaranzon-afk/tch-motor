@@ -1,14 +1,42 @@
 # Motor de estimados de TCH — Riopaila
 
 Núcleo reutilizable del estimador de **TCH** (toneladas de caña por hectárea) por
-suerte, validado contra la cosecha real 2026: **±1,9 % en el agregado (Riopaila),
-MAPE ~12 % por suerte**, y **nivel Nax (MAPE 10 %, ±20 % 86 %) cuando se fusiona
-con el aforo en vivo**.
+suerte.
 
-Esta es la **Fase P0** del pipeline: la lógica consolidada y con tests. La
-extracción de curvas (endpoint CDSE `/api/sentinel-stats` ya desplegado en Rio
-Map), la persistencia en Supabase, el job mensual y el tablero son fases
-siguientes.
+## Corrida mensual (modelo `ee-1.0`, sin base de datos)
+
+Desde sep-2026 el motor corre con **Google Earth Engine** y **archivos**: no depende
+de Supabase ni de la cuota de Copernicus.
+
+```powershell
+.venv-gee\Scripts\python.exe scripts\mensual.py          # corrida completa (~4 min)
+.venv-gee\Scripts\python.exe scripts\mensual.py --sin-gee  # sin actualizar el satélite
+powershell -File scripts\mensual.ps1 -Publicar             # corrida + commit/push del tablero
+```
+
+- **Entradas locales:** ZQM histórico y 2026 (Excel), base de aforos (Excel, para el
+  aforo sintético), maestros de suertes de Rio Map (JSON) y la tabla mensual de
+  Earth Engine (`data/gee/mensual_<planta>.csv`, que la corrida actualiza).
+- **Modelo:** Random Forest entrenado con las campañas completas anteriores
+  (8.330 ciclos 2019-2026), con curvas de Sentinel-2 por suerte, historia propia de
+  la suerte y agronomía, a varias edades de observación para estimar caña joven.
+- **Factor de la campaña:** sale de las cosechas ya cerradas del año (ZQM) y corrige
+  el corrimiento del año que la historia no enseña.
+- **Salida:** JSON en `~/tch-dashboard/data` (estimados, reales, factores, curvas, meta).
+- **Validación** (`scripts/entrenar_gee.py`, informe en `data/gee/validacion_gee.txt`):
+  frente al modelo anterior, en las mismas suertes, MAPE 2026 15,0 % → 13,3 %
+  (±20 %: 72 % → 81 %); con el factor mensual de la campaña, Riopaila 9,7 % y
+  Castilla 11,4 %.
+- Credenciales de Earth Engine en `.env.local` (`GEE_PROJECT`, `GEE_KEY_FILE`); el
+  entorno aislado es `.venv-gee` (no instalar `earthengine-api` en el Python global).
+
+## Fase P0 (modelo anterior, Copernicus + Supabase)
+
+Validado contra la cosecha real 2026: **±1,9 % en el agregado (Riopaila),
+MAPE ~12 % por suerte**, y **nivel Nax (MAPE 10 %, ±20 % 86 %) cuando se fusiona
+con el aforo en vivo**. Los módulos de Supabase (`persistencia`, `pipeline`,
+`autocorreccion`) y el servicio de Render quedan de referencia; la corrida mensual
+ya no los usa.
 
 ## Qué hay aquí
 

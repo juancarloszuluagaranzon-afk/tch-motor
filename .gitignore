@@ -6,3 +6,12 @@ __pycache__/
 .env.local
 build/
 dist/
+.venv-gee/
+# salidas pesadas de Earth Engine (se regeneran con scripts/gee_mensual.py y entrenar_gee.py)
+data/gee/mensual_*.csv
+data/gee/clima_mensual.csv
+data/gee/*.pkl
+data/gee/*.log*
+data/gee/*log*.txt
+data/gee/*_v1.*
+data/gee/validacion_predicciones.csv

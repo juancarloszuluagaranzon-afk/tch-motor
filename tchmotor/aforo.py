@@ -107,6 +107,49 @@ class AforoSintetico:
         return self._global
 
 
+def _num(x):
+    try:
+        return float(str(x).replace(",", "."))
+    except Exception:
+        return float("nan")
+
+
+def registros_aforo_excel(ruta: str) -> list[dict]:
+    """Registros de tallos (variedad, soca, población, peso, diámetro, TCH calculado) de la base
+    de aforos de Agronomía ("Base de aforos completa 2026.xlsx"), para `AforoSintetico`."""
+    import openpyxl
+
+    wb = openpyxl.load_workbook(ruta, read_only=True, data_only=True)
+    out = []
+    for name in ["Aforos 2024-2026", "GENERAL DE LA SUERTE", "BASE 2022-2023", "AFOROS 2022-2023"]:
+        if name not in wb.sheetnames:
+            continue
+        rows = list(wb[name].iter_rows(values_only=True, max_col=34))
+        hi = next((i for i, r in enumerate(rows[:6]) if any(str(c).strip().upper() == "VARIEDAD" for c in r if c)), None)
+        if hi is None:
+            continue
+        H = {str(c).strip().lower(): j for j, c in enumerate(rows[hi]) if c}
+
+        def fnd(*s):
+            return next((j for k, j in H.items() if all(x in k for x in s)), None)
+
+        cv, cc, cpob, ctch = fnd("variedad"), fnd("corte"), fnd("tallos", "mt"), fnd("tch", "calcul")
+        cpe, cdi = fnd("total", "peso"), fnd("total", "diam")
+        if cv is None or cpob is None:
+            continue
+        for r in rows[hi + 1:]:
+            var = str(r[cv]).strip() if r[cv] else None
+            pob = _num(r[cpob])
+            if not var or not (var.startswith("CC") or var == "VARIAS") or not (3 < pob < 25):
+                continue
+            out.append(dict(variedad=var, soca=_num(r[cc]) if cc is not None else None,
+                            pob=pob, peso=_num(r[cpe]) if cpe else None,
+                            dia=_num(r[cdi]) if cdi else None,
+                            tch=_num(r[ctch]) if ctch else None))
+    wb.close()
+    return out
+
+
 class AforoSinteticoTabla:
     """Aforo sintético desde las filas ya agregadas de `tch_aforo_sintetico`
     (Supabase), en vez de recomputarlo de los aforos crudos. Mismo `lookup`.

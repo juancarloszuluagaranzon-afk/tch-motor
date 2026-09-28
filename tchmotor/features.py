@@ -20,8 +20,13 @@ def build_features(
     var_map: dict,
     aforo_vivo: float | None = None,
     max_age: float | None = None,
+    indices: tuple = INDICES,
 ) -> dict:
-    """Dict de features de una suerte (listo para el modelo)."""
+    """Dict de features de una suerte (listo para el modelo).
+
+    `indices` permite resumir más curvas (p. ej. NDRE de Earth Engine) sin cambiar
+    el vector del motor actual, que usa NDVI/NDMI/EVI.
+    """
     variedad = map_variedad(registro.get("variedad"), var_map)
     soca = registro.get("corte")
     sg, hum = parse_zona(registro.get("zona_agro"))
@@ -44,7 +49,7 @@ def build_features(
     }
     cut = registro.get("cut")
     curves = registro.get("curves", {})
-    for idx in INDICES:
+    for idx in indices:
         pares = curve_pairs(cut, curves.get(idx, []), max_age=max_age)
         f.update(curve_features(idx.lower(), pares))
     return f
