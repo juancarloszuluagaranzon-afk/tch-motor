@@ -159,7 +159,8 @@ def ciclos_activos(maestro: dict, ciclos: pd.DataFrame, t_now: int, hoy: date):
             fuera["no está en caña"] += 1
             continue
         var = v.get("variedad")
-        if var in (None, "", "RENOVACION", "VARIAS"):
+        # "VARIAS" sí se estima: el modelo la aprende como una variedad más (≈ 780 cortes desde 2019)
+        if var in (None, "", "RENOVACION"):
             fuera["sin variedad estimable"] += 1
             continue
         cut = _fecha(v.get("fecha_ultimo_corte"))

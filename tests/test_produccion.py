@@ -72,6 +72,12 @@ def test_descarta_lo_que_no_se_puede_estimar():
     assert len(a) == 0 and sum(fuera.values()) == 4
 
 
+def test_varias_se_estima_como_una_variedad_mas():
+    a, fuera = ciclos_activos({"V": _m(variedad="VARIAS"), "R": _m(variedad="RENOVACION")}, CICLOS, T_NOW, HOY)
+    assert list(a.sec_ste) == ["V"] and a.iloc[0].variedad == "VARIAS"
+    assert fuera["sin variedad estimable"] == 1
+
+
 class _Motor:
     def predecir(self, X):
         return np.full(len(X), 100.0)
