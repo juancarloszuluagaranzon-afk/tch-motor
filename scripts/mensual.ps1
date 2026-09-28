@@ -24,6 +24,15 @@ if ($Publicar) {
     if ($LASTEXITCODE -eq 0) { Write-Output "Sin cambios en los datos del tablero."; exit 0 }
     git -C $tablero commit -m "Estimados TCH $hoy"
     git -C $tablero push
-    # el sitio se publica con la CLI de Vercel (proyecto tch-dashboard enlazado en .vercel)
-    & "$env:APPDATA\npm\vercel.cmd" deploy --prod --yes --cwd $tablero
+    # el sitio se publica con la CLI de Vercel (proyecto tch-dashboard enlazado en .vercel);
+    # estimador-tch.vercel.app es un alias manual: hay que moverlo al despliegue nuevo
+    $vercel = "$env:APPDATA\npm\vercel.cmd"
+    $salida = (& $vercel deploy --prod --yes --cwd $tablero 2>&1 | Out-String)
+    $m = [regex]::Match($salida, "tch-dashboard-[a-z0-9]+-riegos\.vercel\.app")
+    if ($m.Success) {
+        & $vercel alias set $m.Value estimador-tch.vercel.app --cwd $tablero
+    } else {
+        Write-Output "No encontré la URL del despliegue; revisa Vercel. Salida: $salida"
+        exit 1
+    }
 }
