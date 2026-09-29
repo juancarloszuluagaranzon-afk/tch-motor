@@ -92,3 +92,15 @@ def test_factor_solo_aplica_con_suficientes_cosechas_cerradas():
     assert f["riopaila"]["factor"] == 0.9 and f["riopaila"]["aplica"]
     assert f["castilla"]["factor"] == 1.0 and not f["castilla"]["aplica"]
     assert f["riopaila"]["sesgo_modelo_pct"] == 11.1
+
+
+def test_reales_trae_variedad_edad_y_modelo_sin_factor():
+    from tchmotor.produccion import reales
+    cerr = pd.DataFrame({"_sec": ["A", "A", "B"], "_planta": ["riopaila"] * 3, "_anio": [2026] * 3, "_mes": [3, 8, 5],
+                         "corte": [2.0, 3.0, np.nan], "variedad": ["CC 01-1940", "CC 01-1940", "VARIAS"],
+                         "edad": [12.04, 12.5, 13.0], "_tch": [110.0, 120.0, 95.0], "_ha": [10.0, 10.0, 5.0],
+                         "pred": [118.26, 121.0, 99.9], "_tipo": ["Mecanico", None, "Manual"]})
+    r = {x["sec_ste"]: x for x in reales(cerr, 2026)}
+    assert r["A"]["mes"] == 8 and r["A"]["corte"] == 3 and r["A"]["tipo_cosecha"] is None  # la cosecha más reciente
+    assert r["A"]["variedad"] == "CC 01-1940" and r["A"]["edad_meses"] == 12.5 and r["A"]["anio"] == 2026
+    assert r["B"]["corte"] is None and r["B"]["tch_modelo"] == 99.9 and r["B"]["tch_real"] == 95.0

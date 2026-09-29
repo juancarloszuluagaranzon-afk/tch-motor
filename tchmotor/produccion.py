@@ -251,13 +251,18 @@ def estimar(motor: MotorTCH, filas: pd.DataFrame, activos: pd.DataFrame, factore
 
 
 def reales(cerr: pd.DataFrame, campana: int) -> list[dict]:
-    """Cosechas cerradas de la campaña (ZQM), una por suerte (la más reciente)."""
+    """Cosechas cerradas de la campaña (ZQM y complemento), una por suerte (la más reciente).
+    `tch_modelo` es lo que el modelo estimaba sin conocer el real y antes del factor de campaña."""
     out = {}
     for r in cerr.sort_values(["_mes"]).to_dict("records"):
+        var, edad = r.get("variedad"), r.get("edad")
         out[r["_sec"]] = {
-            "sec_ste": r["_sec"], "planta": r["_planta"], "campana": str(campana), "mes": int(r["_mes"]),
-            "corte": int(r["corte"]) if r["corte"] == r["corte"] else None, "tch_real": round(float(r["_tch"]), 1),
-            "area_ha": round(float(r["_ha"]), 2), "tch_modelo": round(float(r["pred"]), 1),
+            "sec_ste": r["_sec"], "planta": r["_planta"], "campana": str(campana), "anio": int(r["_anio"]),
+            "mes": int(r["_mes"]), "corte": int(r["corte"]) if r["corte"] == r["corte"] else None,
+            "variedad": var if isinstance(var, str) else None,
+            "edad_meses": round(float(edad), 1) if edad is not None and edad == edad else None,
+            "tch_real": round(float(r["_tch"]), 1), "area_ha": round(float(r["_ha"]), 2),
+            "tch_modelo": round(float(r["pred"]), 1),
             "tipo_cosecha": r["_tipo"] if isinstance(r["_tipo"], str) else None,
         }
     return list(out.values())
