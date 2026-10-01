@@ -102,6 +102,15 @@ def test_cosechas_recientes_completan_lo_que_falta_en_el_zqm():
     assert fuera["ya está en el ZQM"] == 1 and fuera["no está en el maestro"] == 1
 
 
+def test_cosecha_de_suerte_renovada_conserva_su_soca():
+    # el maestro ya registró la cosecha de sep-2026 y, como se renueva, volvió a corte 1:
+    # la soca cosechada es la del ZQM anterior (corte 3, 2025-09-15) + 1, no 0
+    maestro = {"A": _m(fecha_ultimo_corte="2026-09-10", numero_corte=1, fecha_siembra="2020-01-01")}
+    tabla = pd.DataFrame({"sec_ste": ["A"], "tch": [90.0], "fecha": [date(2026, 9, 10)]})
+    n, _ = cosechas_recientes(tabla, maestro, CICLOS)
+    assert n.iloc[0].corte == 4 and n.iloc[0].cut == "2025-09-15"
+
+
 def test_descarta_lo_que_no_se_puede_estimar():
     m = {"joven": _m(fecha_ultimo_corte="2026-07-01"), "reno": _m(variedad="RENOVACION"),
          "pasto": _m(uso="PASTO"), "sin": _m(fecha_ultimo_corte=None)}

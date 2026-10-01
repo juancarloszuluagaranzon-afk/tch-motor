@@ -154,6 +154,8 @@ def cosechas_recientes(tabla: pd.DataFrame, maestro: dict, ciclos: pd.DataFrame)
     - Inicio del ciclo cosechado: la fecha más reciente entre la cosecha anterior del ZQM, el último
       corte del maestro (si todavía no registra esta cosecha) y la siembra, con al menos 6 meses.
     - Soca: la que el maestro marca creciendo; si el maestro ya registró esta cosecha, esa menos 1.
+      Si con eso queda en 0 (la suerte se renovó y el maestro volvió a corte 1), la del corte
+      anterior del ZQM + 1.
     Devuelve (ciclos nuevos, motivos de descarte).
     """
     previas = {s: sorted(date.fromisoformat(h) for h in g) for s, g in ciclos.groupby("sec_ste").harvest}
@@ -186,6 +188,9 @@ def cosechas_recientes(tabla: pd.DataFrame, maestro: dict, ciclos: pd.DataFrame)
             continue
         soca = v.get("numero_corte")
         soca = None if soca is None else int(soca) - (1 if ya_registrada else 0)
+        if soca is not None and soca < 1:  # renovada tras esta cosecha: el maestro ya volvió a corte 1
+            ant = ciclos[(ciclos.sec_ste == r.sec_ste) & (ciclos.harvest < f.isoformat())].sort_values("harvest").corte
+            soca = int(ant.iloc[-1]) + 1 if len(ant) and ant.iloc[-1] == ant.iloc[-1] else None
         t_cos = _t(f)
         filas.append({
             "sec_ste": r.sec_ste, "planta": v["planta"], "anio": f.year, "mes": f.month,
