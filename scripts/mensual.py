@@ -2,7 +2,8 @@
 """Corrida mensual del estimador de TCH, sin base de datos.
 
 1. Earth Engine: agrega a la tabla mensual el mes vigente y rehace el anterior (quedó incompleto).
-2. ZQM (Excel) → ciclos cosechados; base de aforos (Excel) → aforo sintético; maestros → suertes en curso.
+2. ZQM (Excel) → ciclos cosechados; base de aforos (Excel) → aforo sintético; maestro oficial
+   (maestro.csv de maestro-riopaila) → suertes en curso y su edad.
 3. Entrena con las campañas completas anteriores y calcula el factor de la campaña con sus cosechas
    ya cerradas.
 4. Estima todas las suertes en curso y escribe los JSON del tablero: estimados, reales, factores,
@@ -59,7 +60,8 @@ def main():
 
     c = dg.cortes_zqm(dg.leer_zqm())
     zqm_hasta = f"{c.anio.max()}-{c[c.anio == c.anio.max()].mes.max():02d}"
-    maestro = pr.cargar_maestros()
+    maestro, fuente_maestro = pr.cargar_maestro()
+    log(f"Maestro: {len(maestro)} suertes · {fuente_maestro}")
     rec, fuera_rec = pr.cosechas_recientes(pr.leer_cosechas_recientes(), maestro, c)
     c = pd.concat([c, rec], ignore_index=True).drop_duplicates("key").sort_values(["sec_ste", "t_cos"])
     c = c.reset_index(drop=True)
@@ -67,7 +69,9 @@ def main():
     m = dg.cargar_mensual()
     ultimo_sat = int(m.t.max())
     sint = AforoSintetico(registros_aforo_excel(AFOROS), min_n=4)
-    vm, zonas = cargar_var_map(), dg.zonas_maestro()
+    # zona agroecológica del maestro oficial; las suertes que ya salieron de él la conservan de Rio Map
+    vm = cargar_var_map()
+    zonas = {**dg.zonas_maestro(), **{s: v["zona_agroecologica"] for s, v in maestro.items() if v["zona_agroecologica"]}}
     log(f"Cosechas: {len(c)} (ZQM hasta {zqm_hasta}, última {c.harvest.max()}) · "
         f"satélite hasta {mes_txt(ultimo_sat)} · {time.time() - t0:.0f} s")
 
@@ -94,7 +98,7 @@ def main():
         "entrenado_con": f"cosechas 2019-{campana - 1}",
         "ciclos_entrenamiento": int(hist[hist._anio < campana]._key.nunique()),
         "fuentes": ["Earth Engine (Sentinel-2)", "ZQM histórico y 2026 (Excel)", "Base de aforos (Excel)",
-                    "Maestros de suertes (Rio Map)"],
+                    "Maestro de suertes (maestro-riopaila)"],
         "suertes_estimadas": len(estimados), "descartadas": {**dict(fuera), "sin satélite suficiente": sin_sat},
     }
     pr.escribir(a.salida, estimados, pr.reales(cerr, campana), factores, curvas, meta)

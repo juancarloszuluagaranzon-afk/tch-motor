@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """Corrida mensual del estimador sin base de datos.
 
-Entradas (todas locales): ZQM histórico y 2026 (Excel), maestros de suertes (JSON de Rio Map),
-base de aforos (Excel, para el aforo sintético) y la tabla mensual de Earth Engine.
+Entradas: ZQM histórico y 2026 (Excel), maestro oficial de suertes (maestro.csv de maestro-riopaila,
+el que consultan en campo), base de aforos (Excel, para el aforo sintético) y la tabla mensual de
+Earth Engine.
 Salidas: archivos JSON que lee el tablero estático (estimados, reales, factores, curvas, meta).
 
 El modelo se entrena con las campañas COMPLETAS anteriores a la vigente (así se validó) y el
@@ -11,8 +12,11 @@ que la historia no enseña (2026: Castilla MAPE 14,2→11,2, Riopaila 10,5→9,4
 """
 from __future__ import annotations
 
+import csv
 import json
 import math
+import unicodedata
+import urllib.request
 from collections import Counter
 from datetime import date
 from pathlib import Path
@@ -47,19 +51,68 @@ def mes_vigente(hoy: date) -> int:
     return _t(hoy) if hoy.day >= 20 else _t(hoy) - 1
 
 
-def cargar_maestros(carpeta=dg.MAESTROS) -> dict:
+MAESTRO_URL = "https://juancarloszuluagaranzon-afk.github.io/maestro-riopaila/maestro.csv"
+MAESTRO_LOCAL = Path.home() / "maestro-riopaila" / "maestro.csv"
+_PLANTA = {"RIOP": "riopaila", "CAST": "castilla", "CAUC": "castilla"}
+
+
+def _norm(s) -> str:
+    s = unicodedata.normalize("NFD", str(s or "")).encode("ascii", "ignore").decode()
+    return " ".join(s.upper().split())
+
+
+def _num(s):
+    try:
+        return float(str(s).strip().replace(",", "."))
+    except ValueError:
+        return None
+
+
+def leer_maestro_csv(texto: str) -> dict:
+    """maestro.csv → {sec_ste: {...}} con las claves que usa el motor (las mismas de los JSON de Rio Map)."""
+    lineas = texto.lstrip("﻿").splitlines()
+    sep = max(";\t,", key=lineas[0].count)
+    filas = csv.reader(lineas, delimiter=sep)
+    hdr = {_norm(h): i for i, h in enumerate(next(filas))}
+
+    def col(fila, nombre):
+        i = hdr.get(nombre)
+        return fila[i].strip() if i is not None and i < len(fila) else ""
+
+    def iso(fila, nombre):
+        d = _fecha_libre(col(fila, nombre))
+        return d.isoformat() if d else None
+
     out = {}
-    for fn, planta in (("maestro_suertes.json", "riopaila"), ("maestro_castilla.json", "castilla")):
-        for sec, v in json.load(open(Path(carpeta) / fn, encoding="utf-8")).items():
-            out[sec] = {**v, "planta": planta}
+    for f in filas:
+        sec, planta = col(f, "SUERTE"), _PLANTA.get(col(f, "EMPRESA").upper())
+        if not sec or planta is None:
+            continue
+        corte = _num(col(f, "NUMERO DE CORTE"))
+        out[sec] = {
+            "planta": planta, "empresa": col(f, "EMPRESA").upper(), "variedad": col(f, "VARIEDAD") or None,
+            "uso": col(f, "USO DE LA SUERTE"), "numero_corte": int(corte) if corte is not None else None,
+            "fecha_siembra": iso(f, "FECHA DE SIEMBRA"), "fecha_ultimo_corte": iso(f, "FECHA DE ULTIMO CORTE"),
+            "fecha_proximo_corte": iso(f, "FECHA DEL PROXIMO CORTE"), "area_neta_ha": _num(col(f, "AREA NETA HA")),
+            "zona_agroecologica": col(f, "ZONA AGROECOLOGICA") or None,
+        }
     return out
+
+
+def cargar_maestro(url=MAESTRO_URL, local=MAESTRO_LOCAL):
+    """Maestro oficial: el publicado en GitHub Pages; sin red, la copia local. Devuelve (maestro, fuente)."""
+    try:
+        with urllib.request.urlopen(url, timeout=30) as r:
+            return leer_maestro_csv(r.read().decode("utf-8-sig")), url
+    except Exception as e:  # noqa: BLE001 - sin red se sigue con la copia local
+        return leer_maestro_csv(Path(local).read_text(encoding="utf-8-sig")), f"{local} (sin red: {type(e).__name__})"
 
 
 COSECHAS_RECIENTES = Path.home() / "Documents" / "cosechas_recientes.xlsx"
 
 
 def _fecha_libre(x):
-    """Fecha de Excel: datetime, 'AAAA-MM-DD' o 'D/MM/AAAA'."""
+    """Fecha de Excel: datetime, 'AAAA-MM-DD', 'D/MM/AAAA' o número de serie de Excel."""
     if hasattr(x, "year"):
         return date(x.year, x.month, x.day)
     s = str(x or "").strip()[:10]
@@ -67,6 +120,8 @@ def _fecha_libre(x):
         if "/" in s:
             d, m, a = s.split("/")
             return date(int(a), int(m), int(d))
+        if s.replace(".", "", 1).isdigit():
+            return date.fromordinal(date(1899, 12, 30).toordinal() + int(float(s)))
         return date.fromisoformat(s)
     except Exception:
         return None
@@ -145,6 +200,10 @@ def cosechas_recientes(tabla: pd.DataFrame, maestro: dict, ciclos: pd.DataFrame)
 def ciclos_activos(maestro: dict, ciclos: pd.DataFrame, t_now: int, hoy: date):
     """Un ciclo en curso por suerte en caña: la soca que está creciendo desde su último corte.
 
+    Edad hoy: como la cuenta el maestro, desde la fecha más reciente entre la siembra y el último
+    corte (en una plantilla el último corte es la cosecha de antes de renovar). La última cosecha
+    del ZQM o del complemento solo reemplaza al maestro si este aún no la registra (su número de
+    corte no la cuenta) y es posterior a la siembra.
     Edad esperada al corte: la del maestro (próximo − último corte) si es razonable (9-24 meses),
     si no la típica de la suerte (mediana de sus 3 últimos cortes) o la de la planta.
     Caña que ya pasó su edad esperada se estima con la curva completa hasta hoy.
@@ -160,15 +219,19 @@ def ciclos_activos(maestro: dict, ciclos: pd.DataFrame, t_now: int, hoy: date):
             continue
         var = v.get("variedad")
         # "VARIAS" sí se estima: el modelo la aprende como una variedad más (≈ 780 cortes desde 2019)
-        if var in (None, "", "RENOVACION"):
+        if _norm(var) in ("", "RENOVACION"):
             fuera["sin variedad estimable"] += 1
             continue
         cut = _fecha(v.get("fecha_ultimo_corte"))
         corte = v.get("numero_corte")
+        siembra = _fecha(v.get("fecha_siembra"))
+        if siembra is not None and siembra <= hoy and (cut is None or siembra > cut):  # plantilla
+            cut, corte = siembra, 1
         if sec in ultima.index:  # el maestro puede ir atrasado frente a la última cosecha registrada
             u = ultima.loc[sec]
             h = date.fromisoformat(u.harvest)
-            if h <= hoy and (cut is None or (h - cut).days > 20):
+            ya_la_cuenta = u.corte == u.corte and corte is not None and int(u.corte) + 1 <= int(corte)
+            if h <= hoy and not ya_la_cuenta and (cut is None or (h - cut).days > 20):
                 cut = h
                 corte = None if u.corte != u.corte else int(u.corte) + 1
         if cut is None or cut > hoy:

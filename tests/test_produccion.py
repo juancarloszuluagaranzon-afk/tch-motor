@@ -3,7 +3,8 @@ from datetime import date
 import numpy as np
 import pandas as pd
 
-from tchmotor.produccion import RECAL_MIN, ciclos_activos, cosechas_recientes, factor_campana, mes_vigente
+from tchmotor.produccion import (RECAL_MIN, ciclos_activos, cosechas_recientes, factor_campana, leer_maestro_csv,
+                                 mes_vigente)
 
 HOY = date(2026, 9, 27)
 T_NOW = mes_vigente(HOY)
@@ -48,6 +49,42 @@ def test_maestro_atrasado_toma_la_ultima_cosecha_registrada():
     a, _ = ciclos_activos({"A": _m(fecha_ultimo_corte="2024-07-10", numero_corte=3)}, CICLOS, T_NOW, HOY)
     r = a.iloc[0]
     assert r.cut == "2025-09-15" and r.corte == 4
+
+
+def test_maestro_que_ya_cuenta_el_corte_manda_sobre_la_fecha_del_zqm():
+    # 3110-081: el ZQM trae la cosecha de corte 3 con fecha 2025-09-15 y el maestro ya la registró
+    # (crece la soca 4) con fecha 2025-08-01: manda el maestro
+    a, _ = ciclos_activos({"A": _m(fecha_ultimo_corte="2025-08-01", fecha_proximo_corte="2026-08-01")},
+                          CICLOS, T_NOW, HOY)
+    assert a.iloc[0].cut == "2025-08-01" and a.iloc[0].corte == 4
+
+
+def test_plantilla_cuenta_la_edad_desde_la_siembra():
+    # renovada: el último corte (2025-09-15, también en el ZQM) es la cosecha de antes de sembrar
+    a, _ = ciclos_activos({"A": _m(fecha_ultimo_corte="2025-09-15", fecha_siembra="2026-02-25",
+                                   numero_corte=1, fecha_proximo_corte="2027-02-25")}, CICLOS, T_NOW, HOY)
+    r = a.iloc[0]
+    assert r.cut == "2026-02-25" and r.corte == 1 and 7.0 < r._edad_hoy < 7.2
+
+
+def test_plantilla_de_menos_de_4_meses_no_se_estima():
+    a, fuera = ciclos_activos({"A": _m(fecha_ultimo_corte="2025-09-15", fecha_siembra="2026-08-28", numero_corte=1)},
+                              CICLOS, T_NOW, HOY)
+    assert len(a) == 0 and fuera["muy joven (< 4 meses)"] == 1
+
+
+def test_lee_el_maestro_csv_oficial():
+    texto = ("﻿SUERTE;ZONA;AREA NETA HA;EDAD HOY MESES;Zona Agroecologica;VARIEDAD;USO DE LA SUERTE;"
+             "FECHA DE SIEMBRA;FECHA DE ULTIMO CORTE;NUMERO DE CORTE;FECHA DEL PROXIMO CORTE;EMPRESA\n"
+             "2101-010;1;2.08;0.82;6H1;CC 09-066;CAÑA;9/07/2024;5/09/2026;3;20/09/2027;CAST\n"
+             "3501-230;5;7.5;7.1;11H1;CC 11-0132;CAÑA;25/02/2026;15/03/2025;1;25/02/2027;RIOP\n"
+             "9999-001;1;1.0;0;;MANGO;OTROS CULTIVOS;1/01/2020;1/01/2020;1;1/01/2021;BENG\n")
+    m = leer_maestro_csv(texto)
+    assert set(m) == {"2101-010", "3501-230"}  # BENG no es de Riopaila ni de Castilla
+    c = m["2101-010"]
+    assert c["planta"] == "castilla" and c["fecha_ultimo_corte"] == "2026-09-05" and c["numero_corte"] == 3
+    assert c["area_neta_ha"] == 2.08 and c["uso"] == "CAÑA" and c["zona_agroecologica"] == "6H1"
+    assert m["3501-230"]["planta"] == "riopaila" and m["3501-230"]["fecha_siembra"] == "2026-02-25"
 
 
 def test_cosechas_recientes_completan_lo_que_falta_en_el_zqm():
