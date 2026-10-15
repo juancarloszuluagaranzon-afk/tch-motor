@@ -1,0 +1,8 @@
+# Entorno del motor (.venv-gee). Versiones con las que corre en producción (Python 3.14, oct-2026).
+# Instalar:  python -m venv .venv-gee  y luego  .venv-gee\Scripts\python.exe -m pip install -r requirements.txt
+numpy==2.5.3
+pandas==3.0.6
+scikit-learn==1.9.1
+openpyxl==3.1.5
+earthengine-api==1.7.45
+pytest==9.1.1
