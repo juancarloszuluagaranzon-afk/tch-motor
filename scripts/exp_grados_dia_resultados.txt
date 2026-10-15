@@ -1,0 +1,35 @@
+eventos: 504 | con coord por tab_id: 504
+eventos usados: 504 | cobertura GDD: 100%
+GDD b18: media 684  rango [0, 1962]
+GDD b16: media 1224  rango [81, 2934]
+edad calendario: media 12.2  rango [9.0, 16.0] meses
+corr(GDD_b18, edad_cal) = 0.17
+corr(GDD_b18, TCH)      = 0.20
+corr(edad_cal, TCH)     = 0.17
+
+=== CICLO COMPLETO (max_age=None), GroupKFold-por-año ===
+baseline (edad cal)     504 | MAE  14.1t  MAPE 13.7%  ±10%   47%  ±20%   77%
++ GDD b18                   | MAE  14.2t  MAPE 13.8%  ±10%   48%  ±20%   77%
++ GDD b16                   | MAE  14.1t  MAPE 13.7%  ±10%   48%  ±20%   77%
++ GDD b18 + vel.term        | MAE  14.3t  MAPE 13.9%  ±10%   48%  ±20%   76%
+reemplaza edad->GDD         | MAE  14.5t  MAPE 14.0%  ±10%   47%  ±20%   77%
+reemplaza edad->GDD16       | MAE  14.3t  MAPE 13.8%  ±10%   47%  ±20%   77%
+
+=== por BANDA de edad-calendario (ciclo completo) ===
+-- <11.5m  (n=53) --
+  baseline                  | MAE  12.8t  MAPE 14.1%  ±10%   45%  ±20%   72%
+  + GDD b18                 | MAE  12.5t  MAPE 13.8%  ±10%   43%  ±20%   77%
+-- 11.5-13m  (n=393) --
+  baseline                  | MAE  14.2t  MAPE 13.8%  ±10%   47%  ±20%   78%
+  + GDD b18                 | MAE  14.3t  MAPE 14.0%  ±10%   49%  ±20%   76%
+-- >13m  (n=58) --
+  baseline                  | MAE  14.6t  MAPE 12.4%  ±10%   50%  ±20%   81%
+  + GDD b18                 | MAE  14.7t  MAPE 12.6%  ±10%   47%  ±20%   83%
+
+=== PROYECCIÓN caña joven (curva y GDD truncadas a la edad A) ===
+-- edad proyección 6m  (n=476) --
+  baseline                  | MAE  16.4t  MAPE 16.0%  ±10%   41%  ±20%   71%
+  + GDD b18                 | MAE  16.2t  MAPE 15.9%  ±10%   42%  ±20%   73%
+-- edad proyección 9m  (n=503) --
+  baseline                  | MAE  14.4t  MAPE 14.0%  ±10%   49%  ±20%   78%
+  + GDD b18                 | MAE  14.3t  MAPE 13.9%  ±10%   48%  ±20%   77%
