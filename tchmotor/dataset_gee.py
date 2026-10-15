@@ -25,15 +25,16 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from . import rutas
 from .features import build_features
 
-_RAIZ = Path(__file__).resolve().parent.parent
-ZQM_HIST = Path.home() / "Documents" / "historico zqm.xlsx"
-ZQM_2026 = Path.home() / "Documents" / "zqm 26.xlsx"
-MENSUAL = str(_RAIZ / "data" / "gee" / "mensual_{planta}.csv")
-CLIMA = _RAIZ / "data" / "gee" / "clima_mensual.csv"
+_RAIZ = rutas.RAIZ
+ZQM_HIST = rutas.ZQM_HIST
+ZQM_2026 = rutas.ZQM_2026
+MENSUAL = rutas.MENSUAL
+CLIMA = rutas.CLIMA
 CLIMA_BASE = (2011, 2024)  # climatología fija, sin los años que se validan
-MAESTROS = Path.home() / "agrocontrol-campo" / "public" / "data"
+MAESTROS = rutas.TABLONES_DIR
 
 INDICES_CURVA = ("NDVI", "NDMI", "EVI", "NDRE")
 INDICES_ANOM = ("NDVI", "NDMI", "EVI")

@@ -14,9 +14,9 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import pandas as pd  # noqa: E402
-from tchmotor import gee  # noqa: E402
+from tchmotor import gee, rutas  # noqa: E402
 
-DESTINO = os.path.join(gee.RAIZ, "data", "gee", "clima_mensual.csv")
+DESTINO = str(rutas.CLIMA)  # .csv.gz: pandas comprime y descomprime por la extensión
 
 
 def main():

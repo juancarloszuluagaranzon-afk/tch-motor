@@ -23,9 +23,11 @@ import os
 
 import ee
 
+from . import rutas
+
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ENV = os.path.join(RAIZ, ".env.local")
-TABLONES = r"C:\Users\Agr349\agrocontrol-campo\public\data\tablones_{planta}.geojson"
+TABLONES = str(rutas.TABLONES_DIR / "tablones_{planta}.geojson")
 
 S2 = "COPERNICUS/S2_SR_HARMONIZED"
 S1 = "COPERNICUS/S1_GRD"
@@ -256,7 +258,7 @@ def tabla_clima_anual(centroides: dict, anio: int, hasta: str | None = None):
 
 
 COLS_MENSUAL = ["sec_ste", "anio", "mes"] + OPTICOS + ["VV", "VH", "RVI", "despejado"]
-RUTA_MENSUAL = os.path.join(RAIZ, "data", "gee", "mensual_{planta}.csv")
+RUTA_MENSUAL = rutas.MENSUAL  # .csv.gz: pandas comprime y descomprime por la extensión
 
 
 def actualizar_tabla_mensual(planta: str, desde: str, hasta: str, rehacer_desde: str | None = None,

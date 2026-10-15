@@ -25,6 +25,7 @@ import numpy as np
 import pandas as pd
 
 from . import dataset_gee as dg
+from . import rutas
 from .curva import limpiar_nube
 from .modelo import MotorTCH
 
@@ -52,7 +53,7 @@ def mes_vigente(hoy: date) -> int:
 
 
 MAESTRO_URL = "https://juancarloszuluagaranzon-afk.github.io/maestro-riopaila/maestro.csv"
-MAESTRO_LOCAL = Path.home() / "maestro-riopaila" / "maestro.csv"
+MAESTRO_LOCAL = rutas.MAESTRO_LOCAL
 _PLANTA = {"RIOP": "riopaila", "CAST": "castilla", "CAUC": "castilla"}
 
 
@@ -108,7 +109,7 @@ def cargar_maestro(url=MAESTRO_URL, local=MAESTRO_LOCAL):
         return leer_maestro_csv(Path(local).read_text(encoding="utf-8-sig")), f"{local} (sin red: {type(e).__name__})"
 
 
-COSECHAS_RECIENTES = Path.home() / "Documents" / "cosechas_recientes.xlsx"
+COSECHAS_RECIENTES = rutas.COSECHAS_RECIENTES
 
 
 def _fecha_libre(x):

@@ -26,10 +26,11 @@ import pandas as pd  # noqa: E402
 from tchmotor import AforoSintetico, cargar_var_map  # noqa: E402
 from tchmotor import dataset_gee as dg  # noqa: E402
 from tchmotor import produccion as pr  # noqa: E402
+from tchmotor import rutas  # noqa: E402
 from tchmotor.aforo import registros_aforo_excel  # noqa: E402
 
-AFOROS = os.path.join(os.path.expanduser("~"), "Documents", "Base de aforos completa 2026.xlsx")
-SALIDA = os.path.join(os.path.expanduser("~"), "tch-dashboard", "data")
+AFOROS = str(rutas.BASE_AFOROS)
+SALIDA = str(rutas.TABLERO_DATA)
 
 
 def log(s):
@@ -55,8 +56,9 @@ def main():
 
         gee.iniciar()
         for planta in ("riopaila", "castilla"):
+            # sin radar: Sentinel-1 no mejora el estimado (probado sep y 13-oct-2026) y ningún rasgo lo usa
             gee.actualizar_tabla_mensual(planta, mes_txt(t_now - 1), mes_txt(t_now), rehacer_desde=mes_txt(t_now - 1),
-                                         log=log)
+                                         radar=False, log=log)
 
     c = dg.cortes_zqm(dg.leer_zqm())
     zqm_hasta = f"{c.anio.max()}-{c[c.anio == c.anio.max()].mes.max():02d}"

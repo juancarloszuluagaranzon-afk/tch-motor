@@ -7,12 +7,15 @@ migración sql/0001_tch_esquema.sql ya aplicada. Recompute periódico (trimestra
 """
 import io, sys
 
-sys.path.insert(0, r"C:\Users\Agr349\tch-motor")
-from tchmotor import cargar_var_map, AforoSintetico, Supabase  # noqa
+import os
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from tchmotor import cargar_var_map, AforoSintetico, Supabase, rutas  # noqa
 from tchmotor.aforo import registros_aforo_excel  # noqa
 
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
-AFORO = r"C:\Users\Agr349\Documents\Base de aforos completa 2026.xlsx"
+if __name__ == "__main__":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+AFORO = str(rutas.BASE_AFOROS)
 
 
 def registros_aforo():

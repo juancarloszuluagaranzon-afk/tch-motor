@@ -7,7 +7,11 @@ __pycache__/
 build/
 dist/
 .venv-gee/
-# salidas pesadas de Earth Engine (se regeneran con scripts/gee_mensual.py y entrenar_gee.py)
+# herramientas locales
+.claude/
+graphify-out/
+# las tablas de Earth Engine van en git COMPRIMIDAS (mensual_*.csv.gz, clima_mensual.csv.gz) para que otro
+# PC entrene sin volver a extraer; las versiones sin comprimir y las salidas pesadas se regeneran
 data/gee/mensual_*.csv
 data/gee/clima_mensual.csv
 data/gee/*.pkl

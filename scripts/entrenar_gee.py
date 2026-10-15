@@ -32,7 +32,7 @@ RAIZ = dg._RAIZ
 OUT = RAIZ / "data" / "gee"
 DOCS = os.path.join(os.path.expanduser("~"), "Documents")
 ACTUAL = {2025: os.path.join(DOCS, "Estimados_2025.csv"), 2026: os.path.join(DOCS, "Cosechado_2026_estimado.csv")}
-RIOMAP_ENV = r"C:\Users\Agr349\agrocontrol-campo\.env.local"
+RIOMAP_ENV = os.path.join(os.path.expanduser("~"), "agrocontrol-campo", ".env.local")
 ESCENARIOS = [("2025", 2024, 2025), ("2026", 2025, 2026), ("2026 · entrenado hasta 2024", 2024, 2026)]
 # "nuevo" = satélite + historia propia + agronomía. El calor de fin de ciclo (ERA5-Land) y el tipo
 # de cosecha (el de la anterior, que se sabe antes del corte, o el real) se prueban encima: no

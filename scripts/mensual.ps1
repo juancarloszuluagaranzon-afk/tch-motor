@@ -1,11 +1,11 @@
 # Corrida mensual del Estimador TCH (para el Programador de tareas de Windows).
 #   1. Corre el motor: Earth Engine + ZQM + base de aforos + maestros -> JSON en tch-dashboard\data
 #   2. Con -Publicar: commit y push del tablero (Vercel publica la corrida nueva)
-# Uso: powershell -NoProfile -ExecutionPolicy Bypass -File C:\Users\Agr349\tch-motor\scripts\mensual.ps1 [-Publicar]
+# Uso: powershell -NoProfile -ExecutionPolicy Bypass -File <ruta del repo>\scripts\mensual.ps1 [-Publicar]
 param([switch]$Publicar)
 
-$motor = "C:\Users\Agr349\tch-motor"
-$tablero = "C:\Users\Agr349\tch-dashboard"
+$motor = Split-Path -Parent $PSScriptRoot                 # el repo tch-motor, donde esté clonado
+$tablero = Join-Path $env:USERPROFILE "tch-dashboard"     # mismo valor por defecto que tchmotor/rutas.py
 $hoy = Get-Date -Format "yyyy-MM-dd"
 $log = Join-Path $motor "data\gee\corrida_$hoy.log"
 
