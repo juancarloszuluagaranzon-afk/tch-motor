@@ -1,21 +1,28 @@
 # -*- coding: utf-8 -*-
-"""Agrega a cosechas_recientes.xlsx las cosechas de Riopaila terminadas en un mes, desde la app de Turnos.
+"""Agrega a cosechas_recientes.xlsx las cosechas terminadas que el ZQM todavía no trae.
 
 La corrida mensual (scripts/mensual.py) lee ese Excel como complemento del ZQM; sin las cosechas del mes,
-el factor de calibración de la campaña no las ve. Castilla no está en la app: sus filas se pegan a mano
-(suerte, TCH real, fecha en que terminó el corte).
+el factor de calibración de la campaña no las ve, y el motor seguiría estimando como caña en pie una suerte que
+ya se cortó si el maestro no ha registrado el corte.
+
+  --mes AAAA-MM   cortes de Riopaila terminados ese mes en la app de Turnos (TCH de la app).
+  --lista archivo una lista pegada, p. ej. la cosecha de Castilla, que no está en la app: suerte, TCH real y
+                  fecha en que terminó (d/m/aaaa) por línea.
 
 Antes de escribir guarda un respaldo del Excel en la misma carpeta (uno por día). No duplica: se salta la
 suerte que ya tiene una fila con la misma fecha.
 
 Uso:  .venv-gee\\Scripts\\python.exe scripts\\cosechas_desde_app.py --mes 2026-10 [--simular]
+      .venv-gee\\Scripts\\python.exe scripts\\cosechas_desde_app.py --lista castilla_octubre.txt [--simular]
 """
 import argparse
 import calendar
 import os
+import re
 import shutil
 import sys
 from datetime import date, datetime
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import openpyxl  # noqa: E402
@@ -23,15 +30,39 @@ import openpyxl  # noqa: E402
 from tchmotor import rutas, turnos  # noqa: E402
 
 
+def leer_lista(ruta):
+    """Lista pegada (p. ej. la cosecha de Castilla): una suerte por línea con suerte, TCH real y fecha en que
+    terminó (d/m/aaaa), separados por tabulador, punto y coma o espacios. Las líneas sin esa forma (encabezados)
+    se saltan."""
+    out = []
+    for linea in Path(ruta).read_text(encoding="utf-8-sig").splitlines():
+        partes = [p for p in re.split(r"[\t;]+|\s{2,}|\s(?=\d)", linea.strip()) if p]
+        if len(partes) < 3 or not re.fullmatch(r"\d{4}-\d{3}", partes[0]):
+            continue
+        try:
+            tch = float(partes[1].replace(",", "."))
+            fin = datetime.strptime(partes[2], "%d/%m/%Y").date()
+        except ValueError:
+            continue
+        out.append({"sec_ste": partes[0], "tch_real": tch, "fecha_fin": fin.isoformat()})
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--mes", required=True, help="AAAA-MM de la fecha de cierre")
+    fuente = ap.add_mutually_exclusive_group(required=True)
+    fuente.add_argument("--mes", help="AAAA-MM: cortes de Riopaila terminados ese mes en la app de Turnos")
+    fuente.add_argument("--lista", help="archivo con suerte, TCH real y fecha de terminación (d/m/aaaa) por línea")
     ap.add_argument("--simular", action="store_true", help="muestra lo que agregaría sin escribir")
     a = ap.parse_args()
-    y, m = map(int, a.mes.split("-"))
-    desde, hasta = f"{a.mes}-01", f"{a.mes}-{calendar.monthrange(y, m)[1]:02d}"
-    cortes = [c for c in turnos.cortes_terminados(desde, hasta) if c["tch_real"] is not None]
-    print(f"app de Turnos: {len(cortes)} cortes de Riopaila terminados en {a.mes} con TCH")
+    if a.lista:
+        cortes = leer_lista(a.lista)
+        print(f"lista {Path(a.lista).name}: {len(cortes)} cosechas leídas")
+    else:
+        y, m = map(int, a.mes.split("-"))
+        desde, hasta = f"{a.mes}-01", f"{a.mes}-{calendar.monthrange(y, m)[1]:02d}"
+        cortes = [c for c in turnos.cortes_terminados(desde, hasta) if c["tch_real"] is not None]
+        print(f"app de Turnos: {len(cortes)} cortes de Riopaila terminados en {a.mes} con TCH")
 
     arch = rutas.COSECHAS_RECIENTES
     wb = openpyxl.load_workbook(arch)
