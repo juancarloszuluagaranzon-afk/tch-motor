@@ -79,3 +79,13 @@ def cortes_terminados(desde: str, hasta: str) -> list[dict]:
             "tch_real": ton / area if area else None, "tch_ppto": c["tch_ppto"], "tch_anterior": c["tch_anterior"],
         })
     return out
+
+
+_COLS_AFORO = ("id,suerte,date,numero_corte,tch_pesos,tch_modelo,tch_modelo_std,modelo_corrida,modelo_fecha_corte,"
+               "desv_modelo")
+
+
+def aforos() -> list[dict]:
+    """Aforos del módulo de Evaluaciones con el estimado del modelo que guardó cada uno (sin datos personales)."""
+    url, key = _credenciales()
+    return _todo(url, key, "aforo_records", {"select": _COLS_AFORO})

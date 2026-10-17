@@ -44,6 +44,7 @@ powershell -File scripts\mensual.ps1 -Publicar             # corrida + commit/pu
 |---|---|
 | `scripts/cosechas_desde_app.py --mes 2026-10` | Agrega a `cosechas_recientes.xlsx` las cosechas de Riopaila terminadas en el mes (app de Turnos). Castilla se pega a mano. Correrlo **antes** de la corrida mensual. |
 | `scripts/mensual.py` | Corrida mensual del motor (Earth Engine + Excel → JSON del tablero). `--sin-gee` reutiliza la tabla del satélite. |
+| `scripts/modelo_en_aforos.py` | Después de publicar la corrida: pone el estimado nuevo en los aforos de la app de Turnos (barra «Modelo» de Evaluaciones) donde la suerte sigue en pie con la misma soca, y completa los que no tenían con la corrida vigente el día del aforo. Las cosechadas no se tocan. Simula; `--aplicar` escribe con respaldo. |
 | `scripts/presupuesto_cosecha.py --anio 2027 --planta riopaila --meses-ciclo 12 --ajuste -0.15` | Presupuesto de cosecha por suerte y mes, en Excel con fórmulas. La hoja «Supuestos» trae la prueba del año anterior para decidir el ajuste. |
 | `scripts/comparar_real_motor_aforo.py --desde 2026-09-01 --hasta 2026-10-31` | TCH real (app de Cosecha) frente al motor y al aforo de Agronomía, por plantilla, soca, variedad y suerte, en Excel. |
 | `scripts/gee_mensual.py` / `scripts/gee_clima.py` | Rehacen las tablas de satélite y clima desde cero (solo si se pierden). |
