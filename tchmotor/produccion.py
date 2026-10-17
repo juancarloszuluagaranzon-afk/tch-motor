@@ -29,7 +29,7 @@ from . import rutas
 from .curva import limpiar_nube
 from .modelo import MotorTCH
 
-VERSION = "ee-1.0"
+VERSION = "ee-1.1"  # ee-1.1 (16-oct-2026): historia y comparación dentro del plantío
 QUITAR = ("clima", "tipo")  # calor y tipo de cosecha no mejoran fuera de muestra (27-sep-2026)
 RECAL_MIN = 15
 EDAD_MIN = 4  # antes de 4 meses la curva no alcanza para estimar

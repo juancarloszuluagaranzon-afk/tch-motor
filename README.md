@@ -3,7 +3,7 @@
 Núcleo reutilizable del estimador de **TCH** (toneladas de caña por hectárea) por
 suerte.
 
-## Corrida mensual (modelo `ee-1.0`, sin base de datos)
+## Corrida mensual (modelo `ee-1.1`, sin base de datos)
 
 Desde sep-2026 el motor corre con **Google Earth Engine** y **archivos**: no depende
 de Supabase ni de la cuota de Copernicus.
@@ -22,6 +22,12 @@ powershell -File scripts\mensual.ps1 -Publicar             # corrida + commit/pu
 - **Modelo:** Random Forest entrenado con las campañas completas anteriores
   (8.330 ciclos 2019-2026), con curvas de Sentinel-2 por suerte, historia propia de
   la suerte y agronomía, a varias edades de observación para estimar caña joven.
+- **Plantío** (`ee-1.1`, 16-oct-2026): además de la historia de la suerte, la del
+  plantío actual (desde la última siembra: un plantío nuevo empieza cuando baja el
+  número de corte o cambia la variedad) y la comparación con el ciclo anterior del
+  plantío a las mismas edades (cuánto cambió el dosel y TCH anterior × ese cambio).
+  Fuera de muestra: MAPE 2025 9,3 → 9,1 %, 2026 13,6 → 13,0 %
+  (`scripts/exp_historia_plantio.py`).
 - **Factor de la campaña:** sale de las cosechas ya cerradas del año (ZQM) y corrige
   el corrimiento del año que la historia no enseña.
 - **Salida:** JSON en `~/tch-dashboard/data` (estimados, reales, factores, curvas, meta).

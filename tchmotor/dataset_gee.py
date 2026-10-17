@@ -9,6 +9,12 @@ sintético de siempre, y la HISTORIA PROPIA de la suerte:
 * Anomalía del dosel: media del índice en un tramo de edad menos la media de ese mismo
   tramo en los ciclos anteriores de la misma suerte. Es la señal que explicó ~70 % del
   cambio de TCH entre cosechas de una misma suerte en Riopaila.
+* Lo mismo dentro del PLANTÍO actual (desde la última siembra; sufijo `_p` y prefijo `anomp_`),
+  y la comparación con el ciclo inmediatamente anterior del plantío a las mismas edades:
+  diferencia del dosel (`anoml_`) y «análogo» = TCH de ese ciclo × cuánto cambió el dosel
+  (`analog_`). Una renovación con cambio de variedad deja de mezclar la caña vieja con la
+  nueva. Validado fuera de muestra el 16-oct-2026 (scripts/exp_historia_plantio.py, variante D):
+  MAPE 2025 9,3→9,1 %, 2026 13,6→13,0 %, 2026 entrenado hasta 2024 12,8→12,4 %.
 
 Lo histórico sale solo de ciclos cosechados antes del que se predice: nada del futuro
 entra en los rasgos. Repetir cada ciclo a varias edades de observación (6, 8, 10 meses y
@@ -26,6 +32,7 @@ import numpy as np
 import pandas as pd
 
 from . import rutas
+from .agronomia import map_variedad
 from .features import build_features
 
 _RAIZ = rutas.RAIZ
@@ -172,6 +179,23 @@ def historia_tch(c: pd.DataFrame) -> pd.DataFrame:
     }, index=c.index)
 
 
+# variedades que no dicen cuál hay sembrada: no cuentan como cambio de variedad
+VAR_SIN_DATO = {"", "VARIAS", "RENOVACION", "NAN", "NONE", "#N/A"}
+ANALOGOS = ("ndmi_e5_8", "evi_e5_8", "ndvi_e5_8", "ndmi_e9_11", "evi_e9_11")
+
+
+def plantios(c: pd.DataFrame, var_map: dict) -> pd.Series:
+    """Clave del plantío de cada ciclo ("sec_ste#n"). Un plantío nuevo empieza cuando el número
+    de corte baja respecto al ciclo anterior de la suerte (se renovó) o cambia la variedad.
+    `c` ordenado por suerte y cosecha. Un corte desconocido (NaN) no cuenta como renovación."""
+    var = c["variedad"].map(lambda v: (map_variedad(v, var_map) or str(v) or "").strip().upper())
+    prev_c = c.groupby("sec_ste")["corte"].shift(1)
+    prev_v = var.groupby(c["sec_ste"]).shift(1)
+    cambio_var = prev_v.notna() & (var != prev_v) & ~var.isin(VAR_SIN_DATO) & ~prev_v.isin(VAR_SIN_DATO)
+    nuevo = (c.groupby("sec_ste").cumcount() == 0) | (c["corte"] < prev_c) | cambio_var
+    return c["sec_ste"] + "#" + nuevo.astype(int).groupby(c["sec_ste"]).cumsum().astype(str)
+
+
 # ---------------------------------------------------------------- clima (ERA5-Land)
 def cargar_clima(ruta=CLIMA, base=CLIMA_BASE) -> dict:
     """{(planta, sec_ste | None, t): anomalía de tmax (°C)} frente a la climatología del mes.
@@ -270,6 +294,10 @@ def construir(c: pd.DataFrame, m: pd.DataFrame, sintetico, var_map: dict, zonas:
     mec = c["tipo_cosecha"].map({"Mecanico": 1.0, "Manual": 0.0})
     tipo = pd.DataFrame({"tipo_mec": mec, "prev_mec": mec.groupby(c["sec_ste"]).shift(1)}).to_dict("records")
     H = historia_tch(c).to_dict("records")
+    pl = plantios(c, var_map)
+    Hp = historia_tch(c.assign(sec_ste=pl)).add_suffix("_p")
+    prev_tch1_p = Hp["prev_tch1_p"]
+    Hp = Hp.to_dict("records")
     L = dosel_por_edad(c, m)
     curvas = {}
     for i, g in L.groupby("i"):
@@ -279,10 +307,18 @@ def construir(c: pd.DataFrame, m: pd.DataFrame, sintetico, var_map: dict, zonas:
     for obs in edades_obs:
         T = medias_tramo(L, len(c), obs)
         A = pd.DataFrame({f"anom_{k}": T[k] - previa(T[k], c["sec_ste"]) for k in T.columns}, index=T.index)
+        Ap = pd.DataFrame({f"anomp_{k}": T[k] - previa(T[k], pl) for k in T.columns}, index=T.index)
+        # ciclo anterior del plantío visto a la misma edad de observación
+        ant = pd.DataFrame({k: T[k].groupby(pl).shift(1) for k in T.columns}, index=T.index)
+        Al = pd.DataFrame({f"anoml_{k}": T[k] - ant[k] for k in T.columns}, index=T.index)
         for t in TRAMOS:
             if f"anom_ndmi_{t}" in A:  # agua del dosel relativa a su verdor: la firma de 2023 y 2026
                 A[f"anom_dif_{t}"] = A[f"anom_ndmi_{t}"] - A[f"anom_ndvi_{t}"]
-        A = A.to_dict("records")
+                Ap[f"anomp_dif_{t}"] = Ap[f"anomp_ndmi_{t}"] - Ap[f"anomp_ndvi_{t}"]
+        An = pd.DataFrame({f"analog_{k}": prev_tch1_p * (T[k] / ant[k]).where(ant[k].abs() > 0.05).clip(0.5, 1.5)
+                           for k in ANALOGOS if k in T}, index=T.index)
+        # con caña joven puede no haber ningún tramo comparable: to_dict de un DataFrame sin columnas da []
+        A, Ap, Al, An = (x.to_dict("records") if x.shape[1] else [{}] * len(c) for x in (A, Ap, Al, An))
         for i, r in enumerate(c.itertuples(index=False)):
             if solo is not None:
                 if r.key not in solo or solo[r.key] != obs:
@@ -299,9 +335,8 @@ def construir(c: pd.DataFrame, m: pd.DataFrame, sintetico, var_map: dict, zonas:
             f.pop("aforo_vivo", None)
             f["edad_obs"] = float(r.edad if obs is None else obs)
             f["castilla"] = int(r.planta == "castilla")
-            f.update(H[i])
-            f.update(A[i])
-            f.update(tipo[i])
+            for x in (H[i], Hp[i], A[i], Ap[i], Al[i], An[i], tipo[i]):
+                f.update(x)
             if clima is not None:
                 t_obs = r.t_cos if obs is None else r.t_cut + obs
                 f.update(rasgos_clima(clima, r.planta, r.sec_ste, r.t_cut, t_obs))
@@ -314,10 +349,15 @@ def construir(c: pd.DataFrame, m: pd.DataFrame, sintetico, var_map: dict, zonas:
 
 def rasgos(df: pd.DataFrame, quitar=()) -> pd.DataFrame:
     """Solo las columnas del modelo (sin META), opcionalmente sin los grupos `quitar`:
-    "historia" (prev_* y anom_*), "satelite" (curvas y anom_*), "clima" (clima_*),
-    "tipo" (tipo_mec y prev_mec), "tipo_actual" (solo tipo_mec)."""
+    "historia" (prev_*, anomalías y análogos), "satelite" (curvas, anomalías y análogos),
+    "clima" (clima_*), "tipo" (tipo_mec y prev_mec), "tipo_actual" (solo tipo_mec),
+    "plantio" (historia y comparaciones dentro del plantío: el motor de antes del 16-oct-2026)."""
     cols = [c for c in df.columns if not c.startswith("_")]
     sat = tuple(i.lower() + "_" for i in INDICES_CURVA)
+    anom = ("anom_", "anomp_", "anoml_", "analog_")
+    if "plantio" in quitar:
+        cols = [c for c in cols if not (c.endswith("_p") and c.startswith("prev_"))
+                and not c.startswith(("anomp_", "anoml_", "analog_"))]
     if "clima" in quitar:
         cols = [c for c in cols if not c.startswith("clima_")]
     if "tipo" in quitar:
@@ -325,7 +365,7 @@ def rasgos(df: pd.DataFrame, quitar=()) -> pd.DataFrame:
     if "tipo_actual" in quitar:
         cols = [c for c in cols if c != "tipo_mec"]
     if "historia" in quitar:
-        cols = [c for c in cols if not c.startswith(("prev_", "anom_"))]
+        cols = [c for c in cols if not c.startswith(("prev_",) + anom)]
     if "satelite" in quitar:
-        cols = [c for c in cols if not c.startswith(sat + ("anom_",)) and c != "edad_obs"]
+        cols = [c for c in cols if not c.startswith(sat + anom) and c != "edad_obs"]
     return df[cols]

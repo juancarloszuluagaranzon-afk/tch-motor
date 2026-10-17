@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 from tchmotor.aforo import AforoSintetico
-from tchmotor.dataset_gee import construir, cortes_zqm, historia_tch, previa, rasgos, rasgos_clima
+from tchmotor.dataset_gee import construir, cortes_zqm, historia_tch, plantios, previa, rasgos, rasgos_clima
 
 SINT = AforoSintetico([{"variedad": "CC 01-1940", "soca": 2, "pob": 10.0, "peso": 1.4, "dia": 2.7, "tch": 110}] * 4)
 
@@ -94,3 +94,36 @@ def test_edad_de_observacion_no_ve_meses_futuros():
     assert "anom_ndvi_e9_11" not in joven.columns or joven["anom_ndvi_e9_11"].isna().all()
     assert "prev_tch1" not in rasgos(d, quitar=("historia",)).columns
     assert "hist_pob" in rasgos(d, quitar=("historia",)).columns  # aforo sintético se queda
+
+
+def test_plantio_nuevo_cuando_baja_el_corte_o_cambia_la_variedad():
+    c = _ciclos([100, 110, 120, 130, 140, 150], [2019, 2020, 2021, 2022, 2023, 2024])
+    c["corte"] = [4, 5, 1, 2, 3, np.nan]  # renovada en 2021; el último sin número de corte
+    c["variedad"] = ["CC 85-92", "CC 85-92", "CC 05-430", "VARIAS", "CC 05-430", "CC 05-430"]
+    assert plantios(c, {}).tolist() == ["3102-010#1"] * 2 + ["3102-010#2"] * 4  # VARIAS y NaN no renuevan
+    c.loc[3:5, "variedad"] = ["CC 05-430", "CC 01-1940", "CC 01-1940"]  # cambia la variedad sin bajar el corte
+    assert plantios(c, {}).tolist()[3:] == ["3102-010#2", "3102-010#3", "3102-010#3"]
+
+
+def test_historia_del_plantio_no_mezcla_la_variedad_vieja():
+    c = _ciclos([160, 100, 95, 163], [2021, 2022, 2023, 2024])
+    c["corte"] = [3, 4, 5, 1]
+    c["variedad"] = ["CC 85-92"] * 3 + ["CC 05-430"]
+    c = pd.concat([c, _ciclos([145], [2025]).assign(corte=2, variedad="CC 05-430")], ignore_index=True)
+    meses = []
+    for _, r in c.iterrows():
+        for a in range(0, 13):
+            t = r.t_cut + a
+            v = 0.3 if r.anio == 2025 else 0.4  # el ciclo de 2025 con dosel 25 % más débil
+            meses.append({"planta": "riopaila", "sec_ste": r.sec_ste, "anio": t // 12, "mes": t % 12 + 1,
+                          "t": t, "NDVI": v, "NDMI": v, "EVI": v, "NDRE": 0.2})
+    m = pd.DataFrame(meses).drop_duplicates(["sec_ste", "t"], keep="last")
+    d = construir(c, m, SINT, {}, {}, edades_obs=(None,), desde=2020).set_index("_anio")
+    assert d.loc[2025, "prev_tch1_p"] == 163 and d.loc[2025, "prev_n_p"] == 1
+    assert d.loc[2025, "prev_tch3"] == (100 + 95 + 163) / 3  # la de la suerte sí mezcla
+    assert math.isnan(d.loc[2024, "prev_tch1_p"])  # la plantilla no tiene historia en su plantío
+    assert abs(d.loc[2025, "anoml_ndmi_e5_8"] + 0.1) < 1e-9
+    assert abs(d.loc[2025, "analog_ndmi_e5_8"] - 163 * 0.75) < 1e-9
+    assert not [k for k in rasgos(d, quitar=("plantio",)).columns if k.startswith(("anomp_", "anoml_", "analog_"))]
+    assert "prev_tch1_p" not in rasgos(d, quitar=("plantio",)).columns
+    assert "prev_tch1" in rasgos(d, quitar=("plantio",)).columns
