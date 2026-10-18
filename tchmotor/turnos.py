@@ -7,11 +7,13 @@ Replica `resumenCorte` de turnos-jornales/lib/cosecha/calculos.ts:
 El mes de una suerte es el de su fecha de cierre (`fecha_fin`).
 
 Credenciales: NEXT_PUBLIC_SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY del .env.local de la app de Turnos
-(ruta en `rutas.TURNOS_ENV`). Nunca se imprimen. Solo lectura.
+(ruta en `rutas.TURNOS_ENV`), o TCH_TURNOS_URL y TCH_TURNOS_KEY en el entorno (la app empaquetada).
+Nunca se imprimen. Solo lectura.
 """
 from __future__ import annotations
 
 import json
+import os
 import urllib.parse
 import urllib.request
 
@@ -22,6 +24,9 @@ _COLS_CORTE = ("id,suerte,hacienda,zona,area_ha,area_descontada_ha,numero_corte,
 
 
 def _credenciales():
+    url, key = os.environ.get("TCH_TURNOS_URL"), os.environ.get("TCH_TURNOS_KEY")  # la app empaquetada
+    if url and key:
+        return url.rstrip("/"), key
     if not rutas.TURNOS_ENV.exists():
         raise FileNotFoundError(f"No encuentro el .env.local de Turnos en {rutas.TURNOS_ENV} (ajusta TCH_TURNOS_ENV)")
     v = {}

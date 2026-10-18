@@ -7,6 +7,7 @@ __pycache__/
 build/
 dist/
 .venv-gee/
+.venv-build/
 # herramientas locales
 .claude/
 graphify-out/
@@ -19,3 +20,9 @@ data/gee/*.log*
 data/gee/*log*.txt
 data/gee/*_v1.*
 data/gee/validacion_predicciones.csv
+
+# app empaquetada: recursos con datos del ingenio y salidas del empaquetado
+producto/recursos/
+producto/build/
+producto/dist/
+producto/build_log.txt

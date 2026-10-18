@@ -12,8 +12,9 @@ Dos modos:
   sirve para comparar años y para el reentrenamiento; no pretende paridad exacta con Rio Map.
 
 Credenciales: `GEE_PROJECT` (id del proyecto de Google Cloud) y `GEE_KEY_FILE` (ruta a la llave JSON
-de la cuenta de servicio), en variables de entorno o en `tch-motor/.env.local`. La llave nunca se
-copia al repositorio ni se imprime.
+de la cuenta de servicio), en variables de entorno o en `tch-motor/.env.local`. La app empaquetada pasa
+el contenido de la llave en `GEE_KEY_JSON` (la guarda cifrada y nunca la escribe en disco en claro).
+La llave nunca se copia al repositorio ni se imprime.
 """
 from __future__ import annotations
 
@@ -60,6 +61,11 @@ def iniciar():
     proyecto, llave = _env("GEE_PROJECT"), _env("GEE_KEY_FILE")
     if not proyecto:
         raise RuntimeError("Falta GEE_PROJECT en tch-motor/.env.local")
+    contenido = os.environ.get("GEE_KEY_JSON")
+    if contenido:
+        correo = json.loads(contenido).get("client_email")
+        ee.Initialize(ee.ServiceAccountCredentials(correo, key_data=contenido), project=proyecto)
+        return proyecto, correo
     if llave and os.path.exists(llave):
         correo = json.load(open(llave, encoding="utf-8")).get("client_email")
         ee.Initialize(ee.ServiceAccountCredentials(correo, llave), project=proyecto)
@@ -259,6 +265,17 @@ def tabla_clima_anual(centroides: dict, anio: int, hasta: str | None = None):
 
 COLS_MENSUAL = ["sec_ste", "anio", "mes"] + OPTICOS + ["VV", "VH", "RVI", "despejado"]
 RUTA_MENSUAL = rutas.MENSUAL  # .csv.gz: pandas comprime y descomprime por la extensión
+
+
+def ultimo_mes(planta: str) -> int | None:
+    """Último mes (año·12 + mes − 1) que trae la tabla mensual de la planta; None si no existe."""
+    import pandas as pd
+
+    destino = RUTA_MENSUAL.format(planta=planta)
+    if not os.path.exists(destino):
+        return None
+    m = pd.read_csv(destino, usecols=["anio", "mes"])
+    return int((m.anio * 12 + m.mes - 1).max()) if len(m) else None
 
 
 def actualizar_tabla_mensual(planta: str, desde: str, hasta: str, rehacer_desde: str | None = None,

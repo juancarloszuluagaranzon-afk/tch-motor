@@ -56,8 +56,12 @@ def main():
 
         gee.iniciar()
         for planta in ("riopaila", "castilla"):
+            # desde el mes que le falte a la tabla (una instalación nueva puede traerla atrasada) y siempre
+            # rehace los dos últimos, que quedaron incompletos en la corrida anterior
+            ult = gee.ultimo_mes(planta)
+            desde = t_now - 1 if ult is None else min(t_now - 1, ult + 1)
             # sin radar: Sentinel-1 no mejora el estimado (probado sep y 13-oct-2026) y ningún rasgo lo usa
-            gee.actualizar_tabla_mensual(planta, mes_txt(t_now - 1), mes_txt(t_now), rehacer_desde=mes_txt(t_now - 1),
+            gee.actualizar_tabla_mensual(planta, mes_txt(desde), mes_txt(t_now), rehacer_desde=mes_txt(t_now - 1),
                                          radar=False, log=log)
 
     c = dg.cortes_zqm(dg.leer_zqm())

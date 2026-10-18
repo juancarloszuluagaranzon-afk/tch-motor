@@ -1,0 +1,168 @@
+/* Estimador TCH — aplicación de escritorio. Mismo lenguaje visual que el tablero (blanco sobrio, verde Riopaila). */
+:root {
+  --bg: #ffffff;
+  --panel-2: #f7f7f4;
+  --ink: #1a2420;
+  --muted: #66706a;
+  --line: #e4e3db;
+  --line-2: #efeee7;
+  --rio: #1f5a3d;
+  --rio-2: #e8f0eb;
+  --atencion: #9a5b12;
+  --atencion-2: #fbf3e6;
+  --error: #b3261e;
+  --error-2: #fbeceb;
+  --ok: #2e7d4f;
+  --ok-2: #eaf5ee;
+  --radio: 8px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, h4 { margin: 0; text-wrap: balance; }
+.num, .tabla td.n { font-variant-numeric: tabular-nums; }
+
+/* ---------- barra superior */
+.barra {
+  display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap;
+  padding: 14px 28px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--bg); z-index: 5;
+}
+.marca { display: flex; align-items: center; gap: 12px; }
+.marca img { height: 32px; width: auto; }
+.marca h1 { font-family: Newsreader, Georgia, serif; font-weight: 600; font-size: 22px; letter-spacing: -.01em; }
+.marca h1 span { color: var(--rio); }
+.marca p { margin: 0; color: var(--muted); font-size: 12px; }
+.pestanas { display: flex; gap: 4px; flex-wrap: wrap; min-width: 0; }
+.pestanas button {
+  font: inherit; font-weight: 500; color: var(--muted); background: none; border: 0; border-radius: 6px;
+  padding: 7px 14px; cursor: pointer;
+}
+.pestanas button:hover { color: var(--ink); background: var(--panel-2); }
+.pestanas button[aria-selected="true"] { color: var(--rio); background: var(--rio-2); }
+
+main { max-width: 1040px; margin: 0 auto; padding: 22px 28px 60px; }
+.pagina h2 { font-size: 15px; font-weight: 600; margin: 28px 0 12px; }
+
+/* ---------- avisos */
+.avisos { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.avisos li {
+  display: flex; gap: 10px; align-items: baseline; padding: 9px 12px; border-radius: var(--radio);
+  background: var(--panel-2); border: 1px solid var(--line-2);
+}
+.avisos li::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); transform: translateY(-1px); }
+.avisos li.atencion { background: var(--atencion-2); border-color: #f0dfc4; }
+.avisos li.atencion::before { background: var(--atencion); }
+.avisos li.ok { background: var(--ok-2); border-color: #d3eadb; }
+.avisos li.ok::before { background: var(--ok); }
+.avisos a { color: var(--rio); font-weight: 500; cursor: pointer; margin-left: auto; white-space: nowrap; }
+
+/* ---------- resumen de la corrida */
+.resumen { display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 12px; margin-top: 18px; }
+.resumen .tarjeta { border: 1px solid var(--line); border-radius: var(--radio); padding: 14px 16px; }
+.tarjeta .eti { font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+.tarjeta .grande { font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 2px; }
+.tarjeta .grande small { font-size: 13px; color: var(--muted); font-weight: 500; margin-left: 4px; }
+.tarjeta .det { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.chip {
+  display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 12px; font-weight: 600;
+  background: var(--panel-2); color: var(--muted);
+}
+.chip.ok { background: var(--ok-2); color: var(--ok); }
+.chip.atencion { background: var(--atencion-2); color: var(--atencion); }
+.chip.error { background: var(--error-2); color: var(--error); }
+.chip.corriendo { background: var(--rio-2); color: var(--rio); }
+
+/* ---------- ciclo del mes */
+.ciclo { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: var(--radio); }
+.paso { display: grid; grid-template-columns: 44px 1fr; gap: 6px; padding: 16px 18px; }
+.paso + .paso { border-top: 1px solid var(--line-2); }
+.paso-num {
+  width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+  border: 1.5px solid var(--rio); color: var(--rio); font-weight: 600; font-size: 13px;
+}
+.paso h3 { font-size: 14.5px; font-weight: 600; }
+.paso p { margin: 3px 0 10px; color: var(--muted); max-width: 70ch; }
+.paso-estado { font-size: 12.5px; margin: 8px 0 0 !important; color: var(--ink) !important; }
+.sub { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.bloque { background: var(--panel-2); border-radius: var(--radio); padding: 12px; display: grid; gap: 8px; align-content: start; }
+.bloque h4 { font-size: 12.5px; font-weight: 600; }
+.fila { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.fila.entre { justify-content: space-between; }
+label { color: var(--muted); font-size: 12.5px; }
+input, textarea, select {
+  font: inherit; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 6px 9px;
+}
+input:focus, textarea:focus, button:focus-visible, a:focus-visible { outline: 2px solid var(--rio); outline-offset: 1px; }
+textarea { width: 100%; resize: vertical; font-size: 12.5px; }
+.check { display: inline-flex; gap: 6px; align-items: center; color: var(--ink); font-size: 13.5px; }
+
+.btn {
+  font: inherit; font-weight: 600; font-size: 13px; padding: 7px 14px; border-radius: 6px; cursor: pointer;
+  background: var(--rio); color: #fff; border: 1px solid var(--rio); text-decoration: none; display: inline-block;
+}
+.btn:hover { filter: brightness(1.08); }
+.btn.sec { background: #fff; color: var(--rio); border-color: #c9d9cf; }
+.btn.sec:hover { background: var(--rio-2); filter: none; }
+.btn.peligro { background: #fff; color: var(--error); border-color: #efc9c6; }
+.btn:disabled { opacity: .5; cursor: default; filter: none; }
+
+/* ---------- insumos */
+.scroll { overflow-x: auto; }
+.tabla { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tabla th { text-align: left; font-weight: 600; color: var(--muted); font-size: 12px; padding: 6px 10px; border-bottom: 1px solid var(--line); }
+.tabla td { padding: 7px 10px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
+.tabla .ruta { color: var(--muted); font-size: 11.5px; word-break: break-all; }
+.nota { color: var(--muted); font-size: 12.5px; margin: 8px 0 0; }
+
+/* ---------- resultados */
+#marco { width: 100%; height: calc(100vh - 170px); min-height: 520px; border: 1px solid var(--line); border-radius: var(--radio); margin-top: 10px; }
+
+/* ---------- configuración */
+.config { display: grid; gap: 16px; max-width: 760px; }
+fieldset { border: 1px solid var(--line); border-radius: var(--radio); padding: 14px 16px 16px; margin: 0; display: grid; gap: 12px; }
+legend { font-weight: 600; padding: 0 6px; font-size: 14px; }
+.config label { display: grid; gap: 4px; }
+.config label small { color: var(--muted); font-size: 12px; }
+.config label.check { display: inline-flex; }
+.config input:not([type="checkbox"]) { width: 100%; }
+.con-boton { display: flex; gap: 8px; }
+.llave { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; }
+.llave span { margin-right: auto; color: var(--muted); }
+details summary { cursor: pointer; color: var(--muted); font-size: 12.5px; }
+details[open] { display: grid; gap: 10px; }
+
+/* ---------- ayuda */
+.ayuda { max-width: 72ch; }
+.ayuda li { margin-bottom: 6px; }
+
+/* ---------- panel de la tarea */
+.tarea { position: fixed; inset: 0; background: rgba(20, 28, 24, .38); display: grid; place-items: center; z-index: 20; padding: 20px; }
+.tarea[hidden] { display: none; }
+.tarea-caja { background: #fff; border-radius: 10px; width: min(860px, 100%); padding: 18px 20px; display: grid; gap: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.18); }
+.tarea-cab { display: flex; gap: 12px; align-items: center; justify-content: space-between; }
+.tarea-cab h3 { font-size: 15px; }
+#tarea-log {
+  margin: 0; height: 52vh; overflow: auto; background: #161c19; color: #dfe7e2; border-radius: 6px; padding: 12px 14px;
+  font: 12px/1.55 "Cascadia Mono", Consolas, monospace; white-space: pre-wrap; word-break: break-word;
+}
+
+.toast {
+  position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: var(--ink); color: #fff;
+  padding: 9px 16px; border-radius: 8px; font-size: 13px; z-index: 30; max-width: 80vw;
+}
+.toast.error { background: var(--error); }
+
+@media (max-width: 760px) {
+  .resumen, .sub { grid-template-columns: 1fr; }
+  .barra { padding: 12px 16px; gap: 10px; }
+  .pestanas button { padding: 6px 10px; }
+  main { padding: 16px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

@@ -11,6 +11,8 @@ variables de entorno o en `tch-motor/.env.local` (mismo formato `CLAVE=valor` qu
   TCH_TURNOS_ENV       .env.local de la app de Turnos (para leer las cosechas de la app)
   TCH_AFOROS_DIAMETRO  libro «Aforos con Diámetro» de Agronomía
   TCH_PPTO_REFERENCIA  presupuesto de cosecha de Planeación (JSON de la app de Turnos), referencia del presupuesto
+  TCH_GEE_DIR          carpeta de las tablas de Earth Engine (por defecto data/gee del repo; la app empaquetada
+                       la pone en su carpeta de trabajo, que sí se puede escribir)
 """
 from __future__ import annotations
 
@@ -57,6 +59,6 @@ AFOROS_DIAMETRO = ruta("TCH_AFOROS_DIAMETRO", HOME / "OneDrive - Riopaila Agrico
 PPTO_REFERENCIA = ruta("TCH_PPTO_REFERENCIA", HOME / "turnos-jornales" / "data" / "presupuesto_cosecha.json")
 
 # tablas de Earth Engine (comprimidas, van en git para que otro PC entrene sin volver a extraer)
-GEE_DIR = RAIZ / "data" / "gee"
+GEE_DIR = ruta("TCH_GEE_DIR", RAIZ / "data" / "gee")
 MENSUAL = str(GEE_DIR / "mensual_{planta}.csv.gz")
 CLIMA = GEE_DIR / "clima_mensual.csv.gz"

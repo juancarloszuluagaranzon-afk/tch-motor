@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Estimador TCH</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap" />
+  <link rel="stylesheet" href="/ui/estilos.css" />
+</head>
+<body>
+  <header class="barra">
+    <div class="marca">
+      <img src="/tablero/logo-riopaila-simbolo.png" alt="Riopaila Agrícola" />
+      <img src="/tablero/logo-castilla-simbolo.png" alt="Castilla Agrícola" />
+      <div>
+        <h1>Estimador <span>TCH</span></h1>
+        <p id="version">Modelo Random Forest</p>
+      </div>
+    </div>
+    <nav class="pestanas" role="tablist">
+      <button role="tab" data-p="inicio" aria-selected="true">Inicio</button>
+      <button role="tab" data-p="resultados">Resultados</button>
+      <button role="tab" data-p="configuracion">Configuración</button>
+      <button role="tab" data-p="ayuda">Ayuda</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ============ INICIO ============ -->
+    <section id="p-inicio" class="pagina">
+      <ul class="avisos" id="avisos"></ul>
+
+      <div class="resumen" id="resumen"></div>
+
+      <h2>El ciclo del mes</h2>
+      <ol class="ciclo">
+        <li class="paso">
+          <div class="paso-num">1</div>
+          <div class="paso-cuerpo">
+            <h3>Cargar las cosechas del mes</h3>
+            <p>Las suertes que ya se cortaron y el ZQM todavía no trae. Con ellas el motor ajusta el año y deja de estimar lo cosechado.</p>
+            <div class="sub">
+              <div class="bloque">
+                <h4>Riopaila · desde la app de Turnos</h4>
+                <div class="fila">
+                  <label>Mes <input type="month" id="mes-cosechas" /></label>
+                  <button class="btn sec" data-accion="cosechas_app_sim">Ver qué se agrega</button>
+                  <button class="btn" data-accion="cosechas_app">Agregar</button>
+                </div>
+              </div>
+              <div class="bloque">
+                <h4>Castilla · pegando la lista</h4>
+                <textarea id="lista-castilla" rows="4" placeholder="Una suerte por línea: suerte, TCH y fecha en que terminó (d/m/aaaa). Ej.: 2105-031   91,2   12/10/2026"></textarea>
+                <div class="fila">
+                  <button class="btn sec" data-accion="cosechas_lista_sim">Revisar la lista</button>
+                  <button class="btn" data-accion="cosechas_lista">Agregar</button>
+                </div>
+              </div>
+            </div>
+            <p class="paso-estado" id="est-cosechas"></p>
+          </div>
+        </li>
+        <li class="paso">
+          <div class="paso-num">2</div>
+          <div class="paso-cuerpo">
+            <h3>Correr el motor</h3>
+            <p>Baja las imágenes del satélite que falten, reentrena el modelo con toda la historia, calcula el ajuste del año y estima todas las suertes. Tarda unos 4 minutos.</p>
+            <div class="fila">
+              <label class="check"><input type="checkbox" id="con-satelite" checked /> Actualizar las imágenes del satélite</label>
+              <button class="btn" data-accion="motor">Correr el motor</button>
+            </div>
+            <p class="paso-estado" id="est-motor"></p>
+          </div>
+        </li>
+        <li class="paso">
+          <div class="paso-num">3</div>
+          <div class="paso-cuerpo">
+            <h3>Revisar los resultados</h3>
+            <p>Mira el tablero con la corrida nueva antes de publicarla: totales por planta, suertes que más cambiaron y el ajuste del año.</p>
+            <div class="fila"><button class="btn sec" data-ir="resultados">Ver el tablero</button></div>
+          </div>
+        </li>
+        <li class="paso">
+          <div class="paso-num">4</div>
+          <div class="paso-cuerpo">
+            <h3>Publicar el tablero</h3>
+            <p>Sube la corrida al tablero web que consulta todo el equipo.</p>
+            <div class="fila"><button class="btn" data-accion="publicar">Publicar</button></div>
+            <p class="paso-estado" id="est-publicar"></p>
+          </div>
+        </li>
+        <li class="paso">
+          <div class="paso-num">5</div>
+          <div class="paso-cuerpo">
+            <h3>Actualizar el modelo en los aforos</h3>
+            <p>Pone el estimado nuevo en la barra «Modelo» de los aforos de la app de Turnos, solo en las suertes que siguen en pie.</p>
+            <div class="fila">
+              <button class="btn sec" data-accion="aforos_sim">Ver cambios</button>
+              <button class="btn" data-accion="aforos">Aplicar</button>
+            </div>
+          </div>
+        </li>
+      </ol>
+
+      <h2>Insumos</h2>
+      <div class="scroll"><table class="tabla" id="insumos"></table></div>
+      <p class="nota" id="trabajo-nota"></p>
+    </section>
+
+    <!-- ============ RESULTADOS ============ -->
+    <section id="p-resultados" class="pagina" hidden>
+      <div class="fila entre">
+        <p class="nota">Así se verá el tablero con la corrida que está en la carpeta de trabajo.</p>
+        <a class="btn sec" id="ver-publico" target="_blank" rel="noopener">Abrir el tablero publicado</a>
+      </div>
+      <iframe id="marco" title="Tablero del Estimador" src="about:blank"></iframe>
+    </section>
+
+    <!-- ============ CONFIGURACIÓN ============ -->
+    <section id="p-configuracion" class="pagina" hidden>
+      <form id="form-config" class="config" autocomplete="off">
+        <fieldset>
+          <legend>Carpetas</legend>
+          <label>Carpeta de insumos <small>La que contiene «01 Estimados y TCH» y «02 Cosecha y molienda»</small>
+            <span class="con-boton"><input name="carpeta_insumos" /><button type="button" class="btn sec" data-elegir="carpeta_insumos">Elegir…</button></span></label>
+          <label>Carpeta de trabajo <small>Donde quedan la tabla del satélite, las corridas y los registros. Conviene una carpeta compartida (OneDrive) para que otro PC continúe donde quedó este.</small>
+            <span class="con-boton"><input name="carpeta_trabajo" /><button type="button" class="btn sec" data-elegir="carpeta_trabajo">Elegir…</button></span></label>
+        </fieldset>
+        <fieldset>
+          <legend>Earth Engine (imágenes del satélite)</legend>
+          <label>Proyecto <input name="gee_proyecto" /></label>
+          <div class="llave"><span id="llave-gee">Sin llave</span>
+            <button type="button" class="btn sec" id="cargar-llave">Cargar llave (archivo JSON)…</button>
+            <button type="button" class="btn sec" data-probar="probar_gee">Probar</button></div>
+        </fieldset>
+        <fieldset>
+          <legend>App de Turnos (cosechas de Riopaila y aforos)</legend>
+          <label>Dirección <input name="turnos_url" placeholder="https://….supabase.co" /></label>
+          <label>Llave de servicio <small id="tiene-turnos"></small><input name="turnos_key" type="password" placeholder="Déjala vacía para conservar la guardada" /></label>
+          <div class="llave"><button type="button" class="btn sec" data-probar="probar_turnos">Probar</button></div>
+        </fieldset>
+        <fieldset>
+          <legend>Publicación del tablero (Vercel)</legend>
+          <label>Token de Vercel <small id="tiene-vercel"></small><input name="vercel_token" type="password" placeholder="Déjalo vacío para conservar el guardado" /></label>
+          <details>
+            <summary>Datos del proyecto</summary>
+            <label>Equipo (teamId) <input name="vercel_equipo" /></label>
+            <label>Proyecto (id) <input name="vercel_proyecto" /></label>
+            <label>Dirección pública <input name="alias" /></label>
+          </details>
+          <div class="llave"><button type="button" class="btn sec" data-probar="probar_vercel">Probar</button></div>
+        </fieldset>
+        <fieldset>
+          <legend>Corrida automática</legend>
+          <label class="check"><input type="checkbox" id="programada" /> Correr el motor solo el día 2 de cada mes a las 7:00 (no publica: queda para revisar)</label>
+        </fieldset>
+        <p class="nota">Las llaves se guardan cifradas con la protección de Windows: solo tu usuario, en este PC, puede leerlas. Nunca se muestran ni se envían a otro lado.</p>
+        <div class="fila"><button class="btn" type="submit">Guardar</button><span id="config-msg" class="nota"></span></div>
+      </form>
+    </section>
+
+    <!-- ============ AYUDA ============ -->
+    <section id="p-ayuda" class="pagina" hidden>
+      <div class="ayuda">
+        <h2>La primera vez</h2>
+        <ol>
+          <li><b>Carpeta de insumos:</b> la carpeta «RIOPAILA AGRICOLA» con el ZQM, las cosechas recientes y la base de aforos. Si la comparten por OneDrive, elige la carpeta sincronizada.</li>
+          <li><b>Carpeta de trabajo:</b> conviene que también sea compartida, para que todos continúen sobre la misma tabla del satélite y el mismo historial. Al guardarla por primera vez se llena con los datos que trae el instalador.</li>
+          <li><b>Llave de Earth Engine:</b> el archivo JSON que te entregue el responsable del Estimador (por un medio seguro, nunca por correo abierto ni chat). Pulsa «Cargar llave» y luego «Probar».</li>
+          <li><b>App de Turnos y Vercel:</b> la llave de servicio de la app de Turnos y un token de Vercel con acceso al proyecto del tablero. Pulsa «Probar» en cada uno.</li>
+          <li><b>Una sola persona a la vez:</b> si dos personas corren el motor al mismo tiempo sobre la misma carpeta compartida, una pisa a la otra.</li>
+        </ol>
+        <h2>Cómo se usa cada mes</h2>
+        <ol>
+          <li><b>Primero los insumos.</b> Pon en la carpeta de insumos el ZQM más reciente y la base de aforos, si cambiaron.</li>
+          <li><b>Cargar las cosechas.</b> En Riopaila, elige el mes y pulsa «Ver qué se agrega»; si la lista está bien, «Agregar». En Castilla, pega la lista que manda el ingenio.</li>
+          <li><b>Correr el motor</b> con el satélite marcado. Si no hay internet o Earth Engine falla, desmárcalo para correr con las imágenes que ya hay.</li>
+          <li><b>Revisar</b> el tablero en la pestaña «Resultados».</li>
+          <li><b>Publicar</b> y luego <b>actualizar los aforos</b>.</li>
+        </ol>
+        <h2>Si algo falla</h2>
+        <ul>
+          <li>Cada tarea deja su registro en la carpeta de trabajo, en «Registros». Ahí está el detalle del error.</li>
+          <li><b>«No encuentro el ZQM»:</b> revisa en Configuración que la carpeta de insumos sea la correcta.</li>
+          <li><b>Earth Engine no responde:</b> pulsa «Probar» en Configuración. Si la llave venció, carga una nueva.</li>
+          <li><b>Publicar falla:</b> el token de Vercel pudo vencer; crea uno nuevo en vercel.com y guárdalo en Configuración.</li>
+        </ul>
+        <h2>Qué hace el modelo</h2>
+        <p>Mira cada suerte desde el satélite Sentinel-2 (verdor, agua en la hoja y vigor), la compara con 15 años de cosechas y estima el TCH con un comité de 600 árboles de decisión (Random Forest). Cada mes se ajusta con lo que ya se cosechó en el año.</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============ PANEL DE LA TAREA ============ -->
+  <div class="tarea" id="tarea" hidden>
+    <div class="tarea-caja" role="dialog" aria-modal="true" aria-labelledby="tarea-titulo">
+      <div class="tarea-cab">
+        <h3 id="tarea-titulo"></h3>
+        <span class="chip" id="tarea-chip"></span>
+      </div>
+      <pre id="tarea-log"></pre>
+      <div class="fila entre">
+        <button class="btn sec" id="tarea-registro">Abrir el registro</button>
+        <div class="fila">
+          <button class="btn peligro" id="tarea-detener">Detener</button>
+          <button class="btn" id="tarea-cerrar" disabled>Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="toast" id="toast" role="status" hidden></div>
+  <script src="/ui/app.js"></script>
+</body>
+</html>
