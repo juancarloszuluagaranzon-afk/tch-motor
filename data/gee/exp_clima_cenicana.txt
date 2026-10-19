@@ -1,0 +1,58 @@
+clima: 796 meses-zona · 1 s
+dataset 42787 filas · rasgos base 95 · con clima 119 · cobertura clima 94 % · 27 s
+  2025 listo · 171 s
+  peso total del clima en el modelo: 11.8 % · más usados: clc_ini_rad 1.3%, clc_ini_bh 1.2%, clc_crec_rad 1.0%, clc_ini_gd 1.0%, clc_ini_tmax 0.9%, clc_crec_tmin 0.8%
+  2026 listo · 366 s
+  2026 · entrenado hasta 2024 listo · 526 s
+
+==== error por suerte (MAPE) y sesgo del total, SIN factor de campaña ====
+-- completo
+  2025                         todas       n=1194 · MAPE   9.1 →   9.0 · sesgo  -1.6 →  -1.6
+  2025                         riopaila    n= 516 · MAPE   8.8 →   8.6 · sesgo  -4.1 →  -2.7
+  2025                         castilla    n= 678 · MAPE   9.3 →   9.3 · sesgo  +0.5 →  -0.7
+  2025                         real ≥ 150  n= 132 · MAPE  10.3 →  10.1 · sesgo  -9.1 →  -8.7
+  2025                         real < 90   n= 114 · MAPE  18.0 →  17.5 · sesgo +12.9 → +14.0
+  2026                         todas       n= 756 · MAPE  13.0 →  13.3 · sesgo  +8.2 →  +8.6
+  2026                         riopaila    n= 327 · MAPE  10.9 →  11.6 · sesgo  +6.0 →  +7.3
+  2026                         castilla    n= 429 · MAPE  14.6 →  14.7 · sesgo +10.1 →  +9.8
+  2026                         real ≥ 150  n=  16 · MAPE  12.7 →  13.2 · sesgo -10.8 → -11.3
+  2026                         real < 90   n= 161 · MAPE  22.2 →  24.0 · sesgo +18.1 → +20.0
+  2026 · entrenado hasta 2024  todas       n= 756 · MAPE  12.4 →  12.5 · sesgo  +6.9 →  +6.8
+  2026 · entrenado hasta 2024  riopaila    n= 327 · MAPE  10.3 →  10.6 · sesgo  +4.2 →  +5.0
+  2026 · entrenado hasta 2024  castilla    n= 429 · MAPE  14.1 →  13.8 · sesgo  +9.3 →  +8.5
+  2026 · entrenado hasta 2024  real ≥ 150  n=  16 · MAPE  13.7 →  14.0 · sesgo -12.2 → -12.3
+  2026 · entrenado hasta 2024  real < 90   n= 161 · MAPE  20.8 →  21.4 · sesgo +16.3 → +17.1
+-- 8 meses
+  2025                         todas       n=1192 · MAPE   9.4 →   9.3 · sesgo  -2.0 →  -2.1
+  2025                         riopaila    n= 516 · MAPE   9.1 →   8.7 · sesgo  -4.3 →  -3.2
+  2025                         castilla    n= 676 · MAPE   9.7 →   9.8 · sesgo  +0.1 →  -1.1
+  2025                         real ≥ 150  n= 132 · MAPE  10.5 →  10.6 · sesgo  -9.3 →  -9.3
+  2025                         real < 90   n= 113 · MAPE  18.2 →  18.0 · sesgo +13.2 → +14.0
+  2026                         todas       n= 752 · MAPE  13.5 →  13.9 · sesgo  +8.6 →  +9.0
+  2026                         riopaila    n= 327 · MAPE  11.2 →  12.0 · sesgo  +6.7 →  +7.9
+  2026                         castilla    n= 425 · MAPE  15.3 →  15.4 · sesgo +10.3 → +10.0
+  2026                         real ≥ 150  n=  16 · MAPE  12.1 →  13.0 · sesgo -10.8 → -11.5
+  2026                         real < 90   n= 157 · MAPE  24.3 →  25.6 · sesgo +19.6 → +21.4
+  2026 · entrenado hasta 2024  todas       n= 752 · MAPE  12.8 →  12.9 · sesgo  +7.0 →  +6.9
+  2026 · entrenado hasta 2024  riopaila    n= 327 · MAPE  10.4 →  10.9 · sesgo  +4.6 →  +5.3
+  2026 · entrenado hasta 2024  castilla    n= 425 · MAPE  14.6 →  14.4 · sesgo  +9.1 →  +8.4
+  2026 · entrenado hasta 2024  real ≥ 150  n=  16 · MAPE  13.3 →  13.5 · sesgo -12.2 → -12.3
+  2026 · entrenado hasta 2024  real < 90   n= 157 · MAPE  22.4 →  22.6 · sesgo +17.2 → +17.7
+-- 6 meses
+  2025                         todas       n=1194 · MAPE  10.9 →  10.5 · sesgo  -3.8 →  -4.1
+  2025                         riopaila    n= 516 · MAPE  10.7 →  10.1 · sesgo  -6.4 →  -5.7
+  2025                         castilla    n= 678 · MAPE  11.1 →  10.8 · sesgo  -1.6 →  -2.7
+  2025                         real ≥ 150  n= 132 · MAPE  12.7 →  13.4 · sesgo -11.6 → -12.3
+  2025                         real < 90   n= 114 · MAPE  20.2 →  19.9 · sesgo +16.1 → +16.4
+  2026                         todas       n= 756 · MAPE  14.5 →  14.1 · sesgo  +8.3 →  +7.5
+  2026                         riopaila    n= 327 · MAPE  11.3 →  11.7 · sesgo  +5.5 →  +5.6
+  2026                         castilla    n= 429 · MAPE  17.0 →  16.0 · sesgo +10.9 →  +9.2
+  2026                         real ≥ 150  n=  16 · MAPE  13.4 →  14.0 · sesgo -12.0 → -12.0
+  2026                         real < 90   n= 161 · MAPE  26.5 →  26.3 · sesgo +21.2 → +21.4
+  2026 · entrenado hasta 2024  todas       n= 756 · MAPE  13.4 →  13.1 · sesgo  +5.9 →  +5.2
+  2026 · entrenado hasta 2024  riopaila    n= 327 · MAPE  10.4 →  10.7 · sesgo  +2.7 →  +2.7
+  2026 · entrenado hasta 2024  castilla    n= 429 · MAPE  15.7 →  14.9 · sesgo  +8.8 →  +7.3
+  2026 · entrenado hasta 2024  real ≥ 150  n=  16 · MAPE  13.8 →  14.4 · sesgo -12.7 → -12.9
+  2026 · entrenado hasta 2024  real < 90   n= 161 · MAPE  23.5 →  23.0 · sesgo +17.2 → +17.0
+
+total 526 s
