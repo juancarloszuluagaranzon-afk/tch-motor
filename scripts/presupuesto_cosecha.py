@@ -13,10 +13,14 @@ TCH (en este orden):
      zona × variedad, variedad × soca, soca y planta.
 El ajuste (celda editable) se aplica al TCH histórico y de respaldo, no al del motor. La hoja «Supuestos»
 trae la prueba de cómo le habría ido al histórico presupuestando el año anterior, para decidir el ajuste.
+La hoja «Escenarios» da el total y el mes a mes con tres ajustes a la vez (por defecto 0 %, −10 % y −15 %),
+al lado del presupuesto de Planeación del mismo año si existe <01 Estimados y TCH>/Presupuesto_Planeacion_<año>_<Planta>.json
+({"meses": {"1": {"Zona 1": {"area", "ton"}, "Zona 2": {...}, "total": {...}}, ...}, "total": {...}}); si no, usa
+el presupuesto del año anterior de la app de Turnos como referencia.
 
 Uso:
   .venv-gee\\Scripts\\python.exe scripts\\presupuesto_cosecha.py --anio 2027 --planta riopaila \\
-      --meses-ciclo 12 --ajuste -0.15 [--salida archivo.xlsx]
+      --meses-ciclo 12 --ajuste -0.15 [--escenarios 0,-0.10,-0.15] [--salida archivo.xlsx]
 Salida por defecto: <TCH_DOCS>/01 Estimados y TCH/Presupuesto_cosecha_<año>_<Planta>.xlsx
 """
 import argparse
@@ -48,6 +52,9 @@ MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto
 DIAS_MES = 30.4375
 FUENTES = ["Motor satelital", "Histórico de la suerte", "Zona agro × variedad × soca", "Zona agro × variedad",
            "Variedad × soca", "Soca", "Mediana de la planta"]
+ESCENARIOS = [("Recuperación", "La caña que el satélite todavía no ve rinde como la mediana de sus últimos 3 cortes."),
+              ("Intermedio", "{anio} recupera parte de lo que se perdió en {ant}."),
+              ("Como {ant}", "{anio} se parece a {ant}: la mediana histórica se habría pasado {sesgo} presupuestando {ant}.")]
 
 
 def fecha(s):
@@ -148,11 +155,15 @@ def main():
     ap.add_argument("--planta", choices=list(EMPRESAS), default="riopaila")
     ap.add_argument("--meses-ciclo", type=float, default=12.0, help="para las suertes que faltan por cosechar")
     ap.add_argument("--ajuste", type=float, default=0.0, help="al TCH histórico y de respaldo, p. ej. -0.15")
+    ap.add_argument("--escenarios", default="0,-0.10,-0.15", help="ajustes de la hoja Escenarios, separados por coma")
     ap.add_argument("--salida", default=None)
     a = ap.parse_args()
     anio, planta, nom = a.anio, a.planta, NOMBRE[a.planta]
     salida = Path(a.salida) if a.salida else rutas.ESTIMADOS_DIR / f"Presupuesto_cosecha_{anio}_{nom}.xlsx"
     hoy = date.today()
+    pcts = [float(x) for x in a.escenarios.split(",")]
+    ruta_plan = rutas.ESTIMADOS_DIR / f"Presupuesto_Planeacion_{anio}_{nom}.json"
+    plan = json.load(open(ruta_plan, encoding="utf-8")) if ruta_plan.exists() else None
 
     ma, fuente_maestro = leer_maestro(planta)
     renov = sorted(s for s, v in ma.items() if v["var"].upper() == "RENOVACION")
@@ -220,8 +231,20 @@ def main():
         print(f"prueba {anio - 1}: la mediana histórica se habría pasado {bt['sesgo']:+.1%} ({bt['n']} cortes)")
     if pm:
         print(f"motor vs mediana histórica en {len(mh)} suertes: {pm:.1f} vs {ph:.1f}")
+    sesgo = f"{bt['sesgo']:+.0%}" if bt else "de más"
+    nombres = [n.format(ant=anio - 1) for n, _ in ESCENARIOS] if len(pcts) == len(ESCENARIOS) else \
+        [f"Escenario {i + 1}" for i in range(len(pcts))]
+    notas = [t.format(anio=anio, ant=anio - 1, sesgo=sesgo) for _, t in ESCENARIOS] if len(pcts) == len(ESCENARIOS) else \
+        [""] * len(pcts)
+    esc = list(zip(nombres, pcts, notas))
+    mot = dA.fuente == FUENTES[0]
+    for n, p, _ in esc:
+        t = (dA.base * dA.area)[mot].sum() + (dA.base * dA.area)[~mot].sum() * (1 + p)
+        print(f"escenario {n} ({p:+.0%}): {t:,.0f} t · TCH {t / dA.area.sum():.1f}")
+    if plan:
+        print(f"Planeación {anio}: {plan['total']['ton']:,.0f} t · TCH {plan['total']['tch']}")
 
-    escribir(df, salida, a, anio, planta, nom, renov, bt, pm, ph, len(mh), meta, fac, fuente_maestro, hoy)
+    escribir(df, salida, a, anio, planta, nom, renov, bt, pm, ph, len(mh), meta, fac, fuente_maestro, hoy, esc, plan)
     print("guardado:", salida)
 
 
@@ -242,7 +265,7 @@ def coma(x, d=1):
     return f"{x:,.{d}f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
-def escribir(df, salida, a, anio, planta, nom, renov, bt, pm, ph, nmh, meta, fac, fuente_maestro, hoy):
+def escribir(df, salida, a, anio, planta, nom, renov, bt, pm, ph, nmh, meta, fac, fuente_maestro, hoy, esc, plan):
     wb = Workbook()
     # ------------------------------------------------------------ Supuestos
     sp = wb.active
@@ -259,15 +282,26 @@ def escribir(df, salida, a, anio, planta, nom, renov, bt, pm, ph, nmh, meta, fac
         c = sp.cell(i, 2, val)
         c.fill, c.font, c.number_format = YEL, FIN, fmt
         sp.cell(i, 3, nota).font = FNOTE
+    sp.cell(7, 1, "Escenarios (hoja «Escenarios»): ajuste al TCH que no viene del motor").font = FN
+    ESC_REF = []
+    for i, (n, p, nota) in enumerate(esc, 8):
+        sp.cell(i, 1, n).font = FB
+        c = sp.cell(i, 2, p)
+        c.fill, c.font, c.number_format = YEL, FIN, PCT
+        sp.cell(i, 3, nota).font = FNOTE
+        ESC_REF.append(f"Supuestos!$B${i}")
+    r0 = 9 + len(esc)
     info = [("Corrida del motor", f"{meta.get('fecha_corrida')} (satélite hasta {meta.get('satelite_hasta')}), factor de "
                                   f"calibración {nom} {coma(fac.get('factor', 1), 4)} con {fac.get('cosechas', 0)} cosechas"),
             ("Maestro de suertes", fuente_maestro),
             ("Cortes cerrados", f"ZQM hasta {meta.get('zqm_hasta')} + cosechas_recientes.xlsx (hasta {meta.get('cosechas_hasta')})"),
             ("Fecha de generación", hoy.strftime("%d/%m/%Y"))]
-    for i, (k, v) in enumerate(info, 8):
+    if plan:
+        info.append(("Presupuesto de Planeación (referencia)", plan.get("fuente", "")))
+    for i, (k, v) in enumerate(info, r0):
         sp.cell(i, 1, k).font, sp.cell(i, 2, v).font = FN, FB
-    sp["A14"] = "Para decidir el ajuste"
-    sp["A14"].font = FN
+    r1 = r0 + len(info) + 1
+    sp.cell(r1, 1, "Para decidir el ajuste").font = FN
     avisos = []
     if bt:
         tr = " · ".join(f"{k} {v:+.0%}" for k, v in bt["tramos"].items())
@@ -277,7 +311,7 @@ def escribir(df, salida, a, anio, planta, nom, renov, bt, pm, ph, nmh, meta, fac
         avisos.append(f"En las {nmh} suertes que tienen las dos cifras, el motor satelital (lo que ve hoy en la caña del ciclo "
                       f"{anio}) da {coma(pm)} y la mediana histórica {coma(ph)}: el motor está {abs(pm / ph - 1):.0%} "
                       f"{'por debajo' if pm < ph else 'por encima'}.")
-    for i, txt in enumerate(avisos, 15):
+    for i, txt in enumerate(avisos, r1 + 1):
         c = sp.cell(i, 1, txt)
         c.font, c.alignment = FB, Alignment(wrap_text=True, vertical="top")
         sp.merge_cells(start_row=i, start_column=1, end_row=i, end_column=3)
@@ -291,7 +325,8 @@ def escribir(df, salida, a, anio, planta, nom, renov, bt, pm, ph, nmh, meta, fac
             (f"Soca {anio}", 7), ("Grupo de soca", 10), ("Área neta (ha)", 9), ("Origen de la fecha", 14),
             ("Fecha en el maestro", 11), (f"Inicio del ciclo {anio}", 11), (f"Fecha de corte {anio}", 11), ("Año", 6),
             ("Mes", 5), ("Edad al corte (meses)", 8), ("TCH base", 8), ("Fuente del TCH", 22), (f"TCH {anio}", 8),
-            (f"Toneladas {anio}", 11), ("Ref. motor", 8), ("Ref. mediana histórica", 9), ("Cortes en la mediana", 8),
+            (f"Toneladas {anio}", 11), ("Toneladas con TCH base", 11), ("Ref. motor", 8), ("Ref. mediana histórica", 9),
+            ("Cortes en la mediana", 8),
             ("Ref. TCH ppto (maestro)", 9), ("Ref. TCH anterior", 9)]
     K = {n: get_column_letter(i + 1) for i, (n, _) in enumerate(cols)}
     for i, (n, w) in enumerate(cols, 1):
@@ -304,7 +339,8 @@ def escribir(df, salida, a, anio, planta, nom, renov, bt, pm, ph, nmh, meta, fac
             "Ref. TCH anterior", "Fecha en el maestro", f"Inicio del ciclo {anio}"}
     fmts = {"Área neta (ha)": "0.00", "Fecha en el maestro": "dd/mm/yyyy", f"Inicio del ciclo {anio}": "dd/mm/yyyy",
             f"Fecha de corte {anio}": "dd/mm/yyyy", "Año": "0", "Mes": "0", "Edad al corte (meses)": "0.0", "TCH base": "0.0",
-            f"TCH {anio}": "0.0", f"Toneladas {anio}": "#,##0", "Ref. motor": "0.0", "Ref. mediana histórica": "0.0",
+            f"TCH {anio}": "0.0", f"Toneladas {anio}": "#,##0", "Toneladas con TCH base": "#,##0", "Ref. motor": "0.0",
+            "Ref. mediana histórica": "0.0",
             "Ref. TCH ppto (maestro)": "0.0", "Ref. TCH anterior": "0.0"}
     for k, x in enumerate(df.itertuples(index=False), start=2):
         vals = {"Suerte": x.sec, "Zona": x.zona, "Hacienda": x.finca, "Técnico": x.tecnico, "Variedad": x.var,
@@ -324,6 +360,7 @@ def escribir(df, salida, a, anio, planta, nom, renov, bt, pm, ph, nmh, meta, fac
         Q, RF = f"{K['TCH base']}{k}", f"{K['Fuente del TCH']}{k}"
         ps[f"{K[f'TCH {anio}']}{k}"] = f'=IF({RF}="Motor satelital",{Q},{Q}*(1+{AJ_REF}))'
         ps[f"{K[f'Toneladas {anio}']}{k}"] = f"={K[f'TCH {anio}']}{k}*{K['Área neta (ha)']}{k}"
+        ps[f"{K['Toneladas con TCH base']}{k}"] = f"={Q}*{K['Área neta (ha)']}{k}"
         for n, _ in cols:
             cell = ps[f"{K[n]}{k}"]
             cell.font = FIN if n in azul else FB
@@ -335,7 +372,8 @@ def escribir(df, salida, a, anio, planta, nom, renov, bt, pm, ph, nmh, meta, fac
     ps.freeze_panes = "B2"
     ps.auto_filter.ref = f"A1:{get_column_letter(len(cols))}{n1}"
     ps.cell(n1 + 2, 1, "Azul: dato de la fuente. Negro: fórmula. Verde: TCH del motor; amarillo: histórico de la suerte; "
-                       "naranja: respaldo por grupo. «Ref.»: columnas solo de referencia.").font = FNOTE
+                       "naranja: respaldo por grupo. «Ref.»: columnas solo de referencia. «Toneladas con TCH base»: sin "
+                       "el ajuste, la usa la hoja Escenarios.").font = FNOTE
 
     def R(n):
         return f"'Por suerte'!${K[n]}$2:${K[n]}${n1}"
@@ -360,16 +398,26 @@ def escribir(df, salida, a, anio, planta, nom, renov, bt, pm, ph, nmh, meta, fac
         for j in range(4):
             pm_.cell(4, c0 + j).fill = fill
     heads = ["Mes"] + ["Suertes", "Área (ha)", "Toneladas", "TCH"] * len(grupos)
+    # referencia: el presupuesto de Planeación del mismo año (si se transcribió) o el del año anterior (app de Turnos)
     ref = None
-    if planta == "riopaila" and rutas.PPTO_REFERENCIA.exists():
-        ref = json.load(open(rutas.PPTO_REFERENCIA, encoding="utf-8")).get("meses", {})
+    if plan:
+        ref = {mi: plan["meses"].get(str(mi), {}).get("total", {}) for mi in range(1, 13)}
+        ref_tit, ref_vs = f"Presupuesto {anio} de Planeación y Control", "Proyección vs Planeación"
+        ref_nota = f"Referencia: {plan.get('fuente', '')}. El TCH de la referencia es toneladas ÷ área."
+    elif planta == "riopaila" and rutas.PPTO_REFERENCIA.exists():
+        meses_ref = json.load(open(rutas.PPTO_REFERENCIA, encoding="utf-8")).get("meses", {})
+        ref = {mi: meses_ref.get(f"{anio - 1}-{mi:02d}", {}).get("empresa", {}).get("ppto") or {} for mi in range(1, 13)}
+        ref_tit, ref_vs = f"Referencia: presupuesto {anio - 1} de Planeación", f"Toneladas {anio} vs {anio - 1}"
+        ref_nota = (f"Referencia {anio - 1}: presupuesto anual de Planeación (archivo de la app de Turnos). "
+                    "El TCH de la referencia es toneladas ÷ área.")
+    if ref is not None:
         ref_c0 = 2 + 4 * len(grupos)
         pm_.merge_cells(start_row=4, start_column=ref_c0, end_row=4, end_column=ref_c0 + 3)
-        pm_.cell(4, ref_c0, f"Referencia: presupuesto {anio - 1} de Planeación").font = FN
+        pm_.cell(4, ref_c0, ref_tit).font = FN
         pm_.cell(4, ref_c0).alignment = CEN
         for j in range(4):
             pm_.cell(4, ref_c0 + j).fill = REF
-        heads += ["Área (ha)", "Toneladas", "TCH", f"Toneladas {anio} vs {anio - 1}"]
+        heads += ["Área (ha)", "Toneladas", "TCH", ref_vs]
     for i, h in enumerate(heads, 1):
         c = pm_.cell(5, i, h)
         c.font, c.alignment, c.fill = FH, CEN, HEAD
@@ -389,9 +437,9 @@ def escribir(df, salida, a, anio, planta, nom, renov, bt, pm, ph, nmh, meta, fac
             for j, fmt in enumerate(("0", "#,##0.0", "#,##0", "0.0")):
                 pm_[f"{L(c0 + j)}{k}"].number_format, pm_[f"{L(c0 + j)}{k}"].font = fmt, FB
         if ref is not None:
-            p = ref.get(f"{anio - 1}-{mi:02d}", {}).get("empresa", {}).get("ppto") or {}
+            p = ref[mi]
             ca, ct, cc, cv = (L(ref_c0 + j) for j in range(4))
-            pm_[f"{ca}{k}"], pm_[f"{ct}{k}"] = p.get("area"), p.get("ton")
+            pm_[f"{ca}{k}"], pm_[f"{ct}{k}"] = p.get("area") or None, p.get("ton") or None
             pm_[f"{cc}{k}"] = f'=IF(N({ca}{k})=0,"",{ct}{k}/{ca}{k})'
             pm_[f"{cv}{k}"] = f'=IF(N({ct}{k})=0,"",{L(tot_c0 + 2)}{k}/{ct}{k}-1)'
             for col, fmt, fnt in ((ca, "#,##0.0", FIN), (ct, "#,##0", FIN), (cc, "0.0", FB), (cv, PCT, FB)):
@@ -411,8 +459,7 @@ def escribir(df, salida, a, anio, planta, nom, renov, bt, pm, ph, nmh, meta, fac
         pm_[f"{cc}{kt}"], pm_[f"{cv}{kt}"] = f"={ct}{kt}/{ca}{kt}", f"={L(tot_c0 + 2)}{kt}/{ct}{kt}-1"
         for col, fmt in ((ca, "#,##0.0"), (ct, "#,##0"), (cc, "0.0"), (cv, PCT)):
             pm_[f"{col}{kt}"].number_format = fmt
-        pm_.cell(kt + 1, 1, f"Referencia {anio - 1}: presupuesto anual de Planeación (archivo de la app de Turnos). "
-                            "El TCH de la referencia es toneladas ÷ área.").font = FNOTE
+        pm_.cell(kt + 1, 1, ref_nota).font = FNOTE
     for col in range(1, ultima + 1):
         pm_.cell(kt, col).fill, pm_.cell(kt, col).font = TOT, FN
     tot_area, tot_ton = f"$" + L(tot_c0 + 1) + f"${kt}", f"$" + L(tot_c0 + 2) + f"${kt}"
@@ -464,6 +511,144 @@ def escribir(df, salida, a, anio, planta, nom, renov, bt, pm, ph, nmh, meta, fac
     for col in "BCDEF":
         vs.column_dimensions[col].width = 12
 
+    # ------------------------------------------------------------ Escenarios
+    es = wb.create_sheet("Escenarios", 0)
+    es["A1"] = f"{nom} · Proyección de cosecha {anio} en {len(esc)} escenarios"
+    es["A1"].font = FTIT
+    es["A2"] = ("Lo que ya ve el satélite (motor) es igual en todos los escenarios. Cambia el TCH de la caña que el satélite "
+                "todavía no ve, que sale de la historia de cada suerte con el ajuste del escenario (celdas amarillas de la "
+                "hoja Supuestos). El detalle por zona, variedad y suerte está en las otras hojas, con el ajuste de Supuestos B4.")
+    es["A2"].font = FNOTE
+    TB, FUR = R("Toneladas con TCH base"), R("Fuente del TCH")
+    plan_tot = (plan or {}).get("total")
+    pref = f"Planeación {anio}"
+
+    def encabezado(fila, heads_, anchos=None):
+        for i, h in enumerate(heads_, 1):
+            c = es.cell(fila, i, h)
+            c.font, c.alignment, c.fill = FH, CEN, HEAD
+        es.row_dimensions[fila].height = 44
+
+    def formato(fila, col, fmt, fnt=FB):
+        es.cell(fila, col).number_format, es.cell(fila, col).font = fmt, fnt
+
+    # mes a mes y por zona: motor + historia × (1 + ajuste de cada escenario)
+    def tabla(fila, etiqueta, items, crit_de, plan_de):
+        heads_ = [etiqueta, "Suertes", "Área (ha)", "Toneladas del motor", "Toneladas de la historia (sin ajuste)"]
+        for n, _, _ in esc:
+            heads_ += [f"{n}: toneladas", f"{n}: TCH"]
+        if plan:
+            heads_ += [f"{pref}: área (ha)", f"{pref}: toneladas", f"{pref}: TCH"]
+        encabezado(fila, heads_)
+        k = fila
+        for k, (nombre, val) in enumerate(items, fila + 1):
+            crit = crit_de(val)
+            es.cell(k, 1, nombre).font = FN
+            es[f"B{k}"] = f"=COUNTIFS({crit})"
+            es[f"C{k}"] = f"=SUMIFS({area},{crit})"
+            es[f"D{k}"] = f'=SUMIFS({TB},{crit},{FUR},"{FUENTES[0]}")'
+            es[f"E{k}"] = f"=SUMIFS({TB},{crit})-D{k}"
+            for col, fmt in zip("BCDE", ("0", "#,##0", "#,##0", "#,##0")):
+                formato(k, " ABCDE".index(col), fmt)
+            for i in range(len(esc)):
+                ct, cc = 6 + 2 * i, 7 + 2 * i
+                es.cell(k, ct, f"=D{k}+E{k}*(1+{ESC_REF[i]})")
+                es.cell(k, cc, f'=IF(C{k}=0,"",{L(ct)}{k}/C{k})')
+                formato(k, ct, "#,##0")
+                formato(k, cc, "0.0")
+            if plan:
+                p = plan_de(val)
+                c0 = 6 + 2 * len(esc)
+                es.cell(k, c0, p.get("area") or None)
+                es.cell(k, c0 + 1, p.get("ton") or None)
+                es.cell(k, c0 + 2, f'=IF(N({L(c0)}{k})=0,"",{L(c0 + 1)}{k}/{L(c0)}{k})')
+                formato(k, c0, "#,##0", FIN)
+                formato(k, c0 + 1, "#,##0", FIN)
+                formato(k, c0 + 2, "0.0")
+        kt_ = k + 1
+        es.cell(kt_, 1, "Total").font = FN
+        ncol = len(heads_)
+        for col in range(2, ncol + 1):
+            cl = L(col)
+            es_tch = (col >= 7 and col < 6 + 2 * len(esc) and (col - 6) % 2 == 1) or (plan and col == ncol)
+            if es_tch:
+                ton = L(col - 1)
+                ar = L(col - 2) if (plan and col == ncol) else "C"
+                es[f"{cl}{kt_}"] = f'=IF({ar}{kt_}=0,"",{ton}{kt_}/{ar}{kt_})'
+                formato(kt_, col, "0.0", FN)
+            else:
+                es[f"{cl}{kt_}"] = f"=SUM({cl}{fila + 1}:{cl}{k})"
+                formato(kt_, col, "0" if col == 2 else "#,##0", FN)
+        for col in range(1, ncol + 1):
+            es.cell(kt_, col).fill = TOT
+        return kt_
+
+    s0 = 6 + len(esc) + (2 if plan else 0)
+    meses_items = [(m, mi) for mi, m in enumerate(MESES, 1)]
+    kt_mes = tabla(s0, "Mes", meses_items, lambda mi: f"{an},{R('Mes')},{mi}",
+                   lambda mi: plan["meses"].get(str(mi), {}).get("total", {}))
+    zonas_items = [(z, z) for z in sorted(df.zona.unique())]
+
+    def plan_zona(z):
+        ms = [plan["meses"].get(str(mi), {}).get(z, {}) for mi in range(1, 13)]
+        return {"area": sum(x.get("area", 0) for x in ms), "ton": sum(x.get("ton", 0) for x in ms)}
+
+    kt_zona = tabla(kt_mes + 3, "Zona", zonas_items, lambda z: f'{an},{R("Zona")},"{z}"', plan_zona)
+
+    # resumen arriba
+    encabezado(4, ["Escenario", "Ajuste al TCH histórico", "Área (ha)", "Toneladas", "TCH",
+                   f"vs {pref} (t)" if plan else "", f"vs {pref}" if plan else "", "Qué supone"])
+    for j, (n, _, nota) in enumerate(esc):
+        k = 5 + j
+        ct = L(6 + 2 * j)
+        es.cell(k, 1, n).font = FN
+        es[f"B{k}"] = f"={ESC_REF[j]}"
+        es[f"C{k}"] = f"=C{kt_mes}"
+        es[f"D{k}"] = f"={ct}{kt_mes}"
+        es[f"E{k}"] = f'=IF(C{k}=0,"",D{k}/C{k})'
+        for col, fmt in zip("BCDE", (PCT, "#,##0", "#,##0", "0.0")):
+            formato(k, " ABCDE".index(col), fmt)
+        if plan_tot:
+            es[f"F{k}"] = f"=D{k}-{plan_tot['ton']}"
+            es[f"G{k}"] = f"=D{k}/{plan_tot['ton']}-1"
+            formato(k, 6, "+#,##0;-#,##0;0")
+            formato(k, 7, PCT)
+        es.cell(k, 8, nota).font = FNOTE
+    if plan_tot:
+        k = 5 + len(esc)
+        es.cell(k, 1, f"Planeación y Control {anio}").font = FN
+        es.cell(k, 3, plan_tot["area"])
+        es.cell(k, 4, plan_tot["ton"])
+        es[f"E{k}"] = f"=D{k}/C{k}"
+        for col, fmt, fnt in ((3, "#,##0", FIN), (4, "#,##0", FIN), (5, "0.0", FB)):
+            formato(k, col, fmt, fnt)
+        es.cell(k, 8, "Presupuesto oficial, como referencia.").font = FNOTE
+        ea = plan.get("estimado_anterior")
+        if ea:
+            k += 1
+            es.cell(k, 1, f"Estimado {ea['anio']} de Planeación").font = FN
+            es.cell(k, 3, ea["area"])
+            es.cell(k, 4, ea["ton"])
+            es[f"E{k}"] = f"=D{k}/C{k}"
+            for col, fmt, fnt in ((3, "#,##0", FIN), (4, "#,##0", FIN), (5, "0.0", FB)):
+                formato(k, col, fmt, fnt)
+            es.cell(k, 8, f"Cómo cierra {ea['anio']} según Planeación, para comparar.").font = FNOTE
+        for r_ in range(5 + len(esc), k + 1):
+            for col in range(1, 8):
+                es.cell(r_, col).fill = REF
+
+    n_ene = int(sum(1 for x in df.f_anio if x.year == anio and x.month == 1))
+    notas = [f"Las fechas de corte son las del maestro: lo que falta por cosechar en {anio - 1} se corta antes del 31 de "
+             f"diciembre y vuelve a salir {coma(a.meses_ciclo, 1)} meses después. Por eso enero de {anio} tiene "
+             f"{n_ene} suerte{'s' if n_ene != 1 else ''}"
+             + (f", mientras Planeación le pone {coma(plan['meses']['1']['total']['area'], 0)} ha." if plan else ".")]
+    for i, t in enumerate(notas, kt_zona + 2):
+        es.cell(i, 1, t).font = FNOTE
+    es.column_dimensions["A"].width = 24
+    for i in range(2, 6 + 2 * len(esc) + 3):
+        es.column_dimensions[L(i)].width = 12
+    es.freeze_panes = "B5"
+
     # ------------------------------------------------------------ Cómo se hizo
     ch = wb.create_sheet("Cómo se hizo")
     ch.column_dimensions["A"].width = 125
@@ -486,6 +671,9 @@ def escribir(df, salida, a, anio, planta, nom, renov, bt, pm, ph, nmh, meta, fac
          "agroecológica × variedad × soca (mínimo 5 cortes), zona × variedad (8), variedad × soca (8), soca (10) y, si nada "
          "aplica, la mediana de la planta.", False),
         ("El ajuste de la hoja Supuestos se aplica solo al TCH histórico y de respaldo.", False),
+        ("Hoja Escenarios: las mismas suertes y fechas, con " + ", ".join(f"{n} ({p:+.0%})" for n, p, _ in esc)
+         + " sobre el TCH histórico y de respaldo; el del motor queda igual en todos."
+         + (f" Al lado, el presupuesto {anio} de Planeación y Control ({plan.get('fuente', '')})." if plan else ""), False),
         ("", False),
         ("Límites", True),
         ("El reparto por mes depende de cuándo se corten de verdad las suertes pendientes y de las fechas de Planeación en el "
